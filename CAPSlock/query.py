@@ -4,7 +4,7 @@ from sqlalchemy import func
 from roadtools.roadlib.metadef.database import User, Group, DirectoryRole, Application, ServicePrincipal
 from CAPSlock.db import load_capolicies, parse_policy_details, load_named_locations
 from CAPSlock.models import SignInContext, PolicyResult, UserContext
-from CAPSlock.resolvers import build_name_resolver
+from CAPSlock.resolvers import build_name_resolver, expand_group_ids, roles_via_groups
 from CAPSlock.evaluator import evaluate_policy_detail
 
 
@@ -61,7 +61,8 @@ def _build_user_context(session, user: User, assumed_groups: set[str] = None, as
         .filter(User.objectId == user.objectId)
         .all()
     )
-    group_ids = {g.objectId for g in groups}
+    group_ids = expand_group_ids(session, {g.objectId for g in groups})
+    assumed_groups = expand_group_ids(session, assumed_groups or set())
 
     roles = (
         session.query(DirectoryRole)
@@ -69,6 +70,7 @@ def _build_user_context(session, user: User, assumed_groups: set[str] = None, as
         .filter(User.objectId == user.objectId)
         .all()
     )
+    roles += roles_via_groups(session, group_ids | assumed_groups)
 
     role_object_ids = {r.objectId for r in roles}
 

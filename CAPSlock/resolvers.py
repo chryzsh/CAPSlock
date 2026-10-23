@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Optional, Set
 from CAPSlock.models import UserContext, NameResolver
-from roadtools.roadlib.metadef.database import User, Group, DirectoryRole
+from roadtools.roadlib.metadef.database import User, Group, DirectoryRole, lnk_group_member_group
 
 
 def get_user_by_upn(session, upn: str) -> Optional[User]:
@@ -16,7 +16,7 @@ def build_user_context(session, user: User) -> UserContext:
         .filter(User.objectId == user.objectId)
         .all()
     )
-    group_ids = {g.objectId for g in groups if getattr(g, "objectId", None)}
+    group_ids = expand_group_ids(session, {g.objectId for g in groups if getattr(g, "objectId", None)})
 
     roles = (
         session.query(DirectoryRole)
@@ -24,6 +24,7 @@ def build_user_context(session, user: User) -> UserContext:
         .filter(User.objectId == user.objectId)
         .all()
     )
+    roles += roles_via_groups(session, group_ids)
 
     role_object_ids = {r.objectId for r in roles if getattr(r, "objectId", None)}
 
@@ -41,6 +42,33 @@ def build_user_context(session, user: User) -> UserContext:
         role_template_ids=role_template_ids,
         assumed_groups=set(),
         assumed_roles=set(),
+    )
+
+
+def expand_group_ids(session, group_ids: Set[str]) -> Set[str]:
+    # Conditional Access uses transitive membership, so walk up group nesting.
+    result = set(group_ids)
+    frontier = set(group_ids)
+    while frontier:
+        parents = (
+            session.query(lnk_group_member_group.c.Group)
+            .filter(lnk_group_member_group.c.childGroup.in_(frontier))
+            .all()
+        )
+        frontier = {p for (p,) in parents if p and p not in result}
+        result |= frontier
+    return result
+
+
+def roles_via_groups(session, group_ids: Set[str]) -> list:
+    # Directory roles assigned to role-assignable groups the user is in.
+    if not group_ids:
+        return []
+    return (
+        session.query(DirectoryRole)
+        .join(DirectoryRole.memberGroups)
+        .filter(Group.objectId.in_(group_ids))
+        .all()
     )
 
 
