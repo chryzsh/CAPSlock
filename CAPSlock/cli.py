@@ -7,8 +7,8 @@ from CAPSlock.models import SignInContext
 from CAPSlock.normalize import normalize_bool_str, normalize_unknown_str
 from CAPSlock.query import get_policy_results_for_user, convert_from_id, convert_from_name
 from CAPSlock.printers import print_sections_get_policies, print_sections_what_if
+from CAPSlock.resolvers import build_name_resolver
 from CAPSlock.analyze import analyze, write_outputs
-from CAPSlock.query import convert_from_id, convert_from_name
 
 def _add_common_user_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("-u", "--user", required=True, help="User UPN")
@@ -18,6 +18,7 @@ def _add_common_user_args(p: argparse.ArgumentParser) -> None:
 def cmd_get_policies(args) -> int:
     session = get_session(args.db)
     try:
+        resolver = build_name_resolver(session)
         signin_ctx = SignInContext(app_id=args.app)
 
         assume_groups = getattr(args, "assume_group", None) or []
@@ -47,7 +48,7 @@ def cmd_get_policies(args) -> int:
                 print(f"  Roles:  {', '.join(assume_roles)}")
             print()
 
-        print_sections_get_policies(results, args.results.lower())
+        print_sections_get_policies(results, args.results.lower(), resolver=resolver)
         return 0
     finally:
         session.close()
@@ -56,6 +57,7 @@ def cmd_get_policies(args) -> int:
 def cmd_what_if(args) -> int:
     session = get_session(args.db)
     try:
+        resolver = build_name_resolver(session)
         # Policy can either be for resource or user action but not both
         if args.resource and args.acr:
             raise SystemExit("[!] Invalid scenario: --resource and --acr are mutually exclusive (choose one).")
@@ -115,7 +117,7 @@ def cmd_what_if(args) -> int:
         print(f"  device_hybrid_joined: {signin_ctx.device_hybrid_joined}")
         print()
 
-        print_sections_what_if(results, strict=bool(getattr(args, "strict", False)))
+        print_sections_what_if(results, strict=bool(getattr(args, "strict", False)), resolver=resolver)
         return 0
     finally:
         session.close()
