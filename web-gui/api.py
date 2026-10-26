@@ -276,8 +276,18 @@ async def get_sp_policies_api(
     db_path: str = Query(DB_PATH, description="Path to roadrecon.db"),
 ):
     try:
+        from CAPSlock.query import _find_service_principal
         session = get_session(db_path)
         signin_ctx = SignInContext(app_id=app)
+
+        sp_obj = _find_service_principal(session, sp.strip())
+        sp_info = {}
+        if sp_obj:
+            sp_info = {
+                "sp_display_name": sp_obj.displayName or sp.strip(),
+                "sp_object_id": sp_obj.objectId,
+                "sp_app_id": getattr(sp_obj, "appId", "") or "",
+            }
 
         try:
             policy_results = get_policy_results_for_sp(
@@ -294,6 +304,7 @@ async def get_sp_policies_api(
         if results == "applied":
             response = {
                 "sp": sp,
+                **sp_info,
                 "results_mode": results,
                 "policies": categorized["applied"],
                 "count": categorized["applied_count"],
@@ -301,6 +312,7 @@ async def get_sp_policies_api(
         elif results == "exclusions":
             response = {
                 "sp": sp,
+                **sp_info,
                 "results_mode": results,
                 "policies": categorized["excluded"],
                 "count": categorized["excluded_count"],
@@ -308,6 +320,7 @@ async def get_sp_policies_api(
         else:
             response = {
                 "sp": sp,
+                **sp_info,
                 "results_mode": results,
                 "applied": categorized["applied"],
                 "excluded": categorized["excluded"],
