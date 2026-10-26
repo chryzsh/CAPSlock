@@ -75,6 +75,20 @@ def load_named_locations(session) -> Dict[str, bool]:
             if loc.objectId:
                 location_trust_map[loc.objectId] = is_trusted
 
+            if loc.policyDetail:
+                for detail_raw in loc.policyDetail:
+                    try:
+                        detail = json.loads(detail_raw)
+                        knp = detail.get("KnownNetworkPolicies")
+                        if knp and knp.get("NetworkId"):
+                            knp_trusted = False
+                            knp_cats = detail.get("Categories", []) or []
+                            if "trusted" in [str(c).lower() for c in knp_cats]:
+                                knp_trusted = True
+                            location_trust_map[knp["NetworkId"]] = knp_trusted
+                    except Exception:
+                        pass
+
     except Exception as e:
         print(f"[!] Failed to load named locations: {e}")
 
