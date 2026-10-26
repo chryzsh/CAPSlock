@@ -1143,7 +1143,10 @@
 
         function populateLocationDropdowns() {
             if (!nameMap || !nameMap.locations) return;
-            const locs = Object.entries(nameMap.locations).sort((a, b) => a[1].localeCompare(b[1]));
+            const seen = new Set();
+            const locs = Object.entries(nameMap.locations)
+                .filter(([_, name]) => { if (seen.has(name)) return false; seen.add(name); return true; })
+                .sort((a, b) => a[1].localeCompare(b[1]));
             for (const selId of ['wi-location', 'an-location']) {
                 const sel = document.getElementById(selId);
                 if (!sel) continue;
