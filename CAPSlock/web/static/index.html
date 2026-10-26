@@ -650,7 +650,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="gp-app">Application ID <small>(optional)</small></label>
-                                    <input type="text" id="gp-app" class="form-control" placeholder="00000000-0000-0000-0000-000000000000">
+                                    <input type="text" id="gp-app" class="form-control" list="app-ids" placeholder="Start typing or select..." autocomplete="off">
                                 </div>
 
                                 <div class="form-group">
@@ -704,7 +704,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="wi-resource">Resource / App ID</label>
-                                    <input type="text" id="wi-resource" class="form-control" placeholder="00000000-0000-0000-0000-000000000000">
+                                    <input type="text" id="wi-resource" class="form-control" list="app-ids" placeholder="Start typing or select..." autocomplete="off">
                                 </div>
 
                                 <div class="form-group">
@@ -844,7 +844,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="an-resource">Resource / App ID</label>
-                                    <input type="text" id="an-resource" class="form-control" placeholder="00000000-0000-0000-0000-000000000000">
+                                    <input type="text" id="an-resource" class="form-control" list="app-ids" placeholder="Start typing or select..." autocomplete="off">
                                 </div>
 
                                 <div class="form-group">
@@ -1026,9 +1026,56 @@
         </div>
     </div>
 
+    <datalist id="app-ids"></datalist>
+
     <script>
         let dbPath = 'roadrecon.db';
         let nameMap = null;
+
+        const WELL_KNOWN_APPS = [
+            { id: 'All', name: 'All cloud apps' },
+            { id: '00000003-0000-0000-c000-000000000000', name: 'Microsoft Graph' },
+            { id: '00000002-0000-0000-c000-000000000000', name: 'Azure AD Graph' },
+            { id: '797f4846-ba00-4fd7-ba43-dac1f8f63013', name: 'Azure Resource Manager' },
+            { id: '00000002-0000-0ff1-ce00-000000000000', name: 'Office 365 Exchange Online' },
+            { id: '00000003-0000-0ff1-ce00-000000000000', name: 'Office 365 SharePoint Online' },
+            { id: 'cc15fd57-2c6c-4117-a88c-83b1d56b4bbe', name: 'Microsoft Teams' },
+            { id: '0000000a-0000-0000-c000-000000000000', name: 'Microsoft Intune' },
+            { id: '00000009-0000-0000-c000-000000000000', name: 'Power BI Service' },
+            { id: 'c44b4083-3bb0-49c1-b47d-974e53cbdf3c', name: 'Azure Portal' },
+            { id: 'cfa8b339-82a2-471a-a3c9-0fc0be7a4093', name: 'Azure Key Vault' },
+            { id: 'c5393580-f805-4401-95e8-94b7a6ef2fc2', name: 'Office 365 Management APIs' },
+            { id: '1b730954-1685-4b74-9bfd-dac224a7b894', name: 'Azure Active Directory' },
+            { id: 'd4ebce55-015a-49b5-a083-c84d1797ae8c', name: 'Microsoft Intune Enrollment' },
+            { id: '0000000c-0000-0000-c000-000000000000', name: 'Microsoft App Access Panel' },
+            { id: 'e9f49c6b-5ce5-44c8-925d-015017e9f7ad', name: 'Azure Data Lake' },
+            { id: '04b07795-8ddb-461a-bbee-02f9e1bf7b46', name: 'Azure CLI' },
+            { id: '1950a258-227b-4e31-a9cf-717495945fc2', name: 'Azure PowerShell' },
+        ];
+
+        function populateAppDatalist() {
+            const dl = document.getElementById('app-ids');
+            const seen = new Set();
+            let html = '';
+
+            for (const app of WELL_KNOWN_APPS) {
+                seen.add(app.id);
+                html += `<option value="${app.id}" label="${escapeHtml(app.name)} (${app.id})"></option>`;
+            }
+
+            if (nameMap && nameMap.apps) {
+                const dbApps = Object.entries(nameMap.apps)
+                    .filter(([id]) => !seen.has(id))
+                    .sort((a, b) => a[1].localeCompare(b[1]));
+                for (const [id, name] of dbApps) {
+                    if (seen.has(id)) continue;
+                    seen.add(id);
+                    html += `<option value="${id}" label="${escapeHtml(name)} (${id})"></option>`;
+                }
+            }
+
+            dl.innerHTML = html;
+        }
 
         // ── Global search / convert ──────────────────────────────────────────
         const GUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
@@ -1043,7 +1090,10 @@
             try {
                 const params = new URLSearchParams({ db_path: dbPath });
                 const res = await fetch(`/api/names?${params}`);
-                if (res.ok) nameMap = await res.json();
+                if (res.ok) {
+                    nameMap = await res.json();
+                    populateAppDatalist();
+                }
             } catch (e) {
                 console.warn('Failed to load name map:', e);
             }
@@ -1318,6 +1368,7 @@
         function saveSettings() {
             dbPath = document.getElementById('db-path').value || 'roadrecon.db';
             nameMap = null;
+            populateAppDatalist();
             toggleSettings();
             alert('Settings saved');
         }
@@ -2338,6 +2389,8 @@
 
             changeAllPoliciesPage(pageNum);
         }
+
+        populateAppDatalist();
     </script>
 </body>
 </html>
