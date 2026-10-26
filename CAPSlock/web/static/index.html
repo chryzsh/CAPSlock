@@ -785,11 +785,11 @@
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="wi-trusted-location">Trusted Location</label>
-                                    <select id="wi-trusted-location" class="form-control">
+                                    <label for="wi-location">Sign-in Location</label>
+                                    <select id="wi-location" class="form-control">
                                         <option value="">Not specified</option>
-                                        <option value="true">True</option>
-                                        <option value="false">False</option>
+                                        <option value="__trusted__">Other trusted location</option>
+                                        <option value="__untrusted__">Other untrusted location</option>
                                     </select>
                                 </div>
 
@@ -930,11 +930,11 @@
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="an-trusted-location">Fixed Trusted Location <small>(optional)</small></label>
-                                    <select id="an-trusted-location" class="form-control">
+                                    <label for="an-location">Fixed Location <small>(optional)</small></label>
+                                    <select id="an-location" class="form-control">
                                         <option value="">Permute all</option>
-                                        <option value="true">True</option>
-                                        <option value="false">False</option>
+                                        <option value="__trusted__">Other trusted location</option>
+                                        <option value="__untrusted__">Other untrusted location</option>
                                     </select>
                                 </div>
 
@@ -1133,6 +1133,32 @@
             dl.innerHTML = html;
         }
 
+        function parseLocationDropdown(selectId) {
+            const val = document.getElementById(selectId).value;
+            if (!val) return { trusted_location: null, location_id: null };
+            if (val === '__trusted__') return { trusted_location: true, location_id: null };
+            if (val === '__untrusted__') return { trusted_location: false, location_id: null };
+            return { location_id: val, trusted_location: null };
+        }
+
+        function populateLocationDropdowns() {
+            if (!nameMap || !nameMap.locations) return;
+            const locs = Object.entries(nameMap.locations).sort((a, b) => a[1].localeCompare(b[1]));
+            for (const selId of ['wi-location', 'an-location']) {
+                const sel = document.getElementById(selId);
+                if (!sel) continue;
+                const existing = sel.querySelectorAll('option[data-db]');
+                existing.forEach(o => o.remove());
+                for (const [id, name] of locs) {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = name;
+                    opt.setAttribute('data-db', '1');
+                    sel.appendChild(opt);
+                }
+            }
+        }
+
         // ── Global search / convert ──────────────────────────────────────────
         const GUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
         let searchDebounce = null;
@@ -1153,6 +1179,7 @@
                         Object.keys(nameMap.groups || {}).length, 'groups,',
                         Object.keys(nameMap.locations || {}).length, 'locations');
                     populateAppDatalist();
+                    populateLocationDropdowns();
                 } else {
                     console.warn('Name map request failed:', res.status, await res.text());
                 }
@@ -1540,6 +1567,7 @@
             dbPath = document.getElementById('db-path').value || 'roadrecon.db';
             nameMap = null;
             populateAppDatalist();
+            populateLocationDropdowns();
             toggleSettings();
             alert('Settings saved');
         }
@@ -1896,8 +1924,7 @@
                 acr: document.getElementById('wi-acr').value || null,
                 platform: document.getElementById('wi-platform').value || null,
                 client_app: document.getElementById('wi-client-app').value || null,
-                trusted_location: document.getElementById('wi-trusted-location').value ?
-                    document.getElementById('wi-trusted-location').value === 'true' : null,
+                ...parseLocationDropdown('wi-location'),
                 signin_risk: document.getElementById('wi-signin-risk').value || null,
                 user_risk: document.getElementById('wi-user-risk').value || null,
                 auth_flow: document.getElementById('wi-auth-flow').value || null,
@@ -1959,6 +1986,7 @@
                 resource: 'Resource',
                 acr: 'User Action',
                 trusted_location: 'Trusted Location',
+                location_id: 'Location',
                 platform: 'Platform',
                 client_app: 'Client App',
                 signin_risk: 'Sign-in Risk',
@@ -1974,7 +2002,7 @@
                 .map(([k, v]) => {
                     const label = scenarioLabels[k] || k;
                     let displayVal = v;
-                    if (k === 'resource') displayVal = resolveOrRaw(String(v));
+                    if (k === 'resource' || k === 'location_id') displayVal = resolveOrRaw(String(v));
                     return `<div class="scenario-item"><span class="scenario-label">${escapeHtml(label)}:</span><span class="scenario-value">${escapeHtml(String(displayVal))}</span></div>`;
                 });
             if (scenarioItems.length > 0) {
@@ -2086,8 +2114,7 @@
                 acr: document.getElementById('an-acr').value || null,
                 max_scenarios: parseInt(document.getElementById('an-max-scenarios').value),
                 platform: document.getElementById('an-platform').value || null,
-                trusted_location: document.getElementById('an-trusted-location').value ?
-                    document.getElementById('an-trusted-location').value === 'true' : null,
+                ...parseLocationDropdown('an-location'),
                 client_app: document.getElementById('an-client-app').value || null,
                 signin_risk: document.getElementById('an-signin-risk').value || null,
                 user_risk: document.getElementById('an-user-risk').value || null,
