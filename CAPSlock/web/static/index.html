@@ -2533,7 +2533,10 @@
             const reporting = data.policies.filter(p => p.state === 'Reporting').length;
             const disabled = data.policies.filter(p => p.state === 'Disabled').length;
 
-            html += '<p style="color: #888; font-size: 0.85em; margin-bottom: 12px;">Click on a card to filter policies</p>';
+            html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">';
+            html += '<p style="color: #888; font-size: 0.85em; margin: 0;">Click on a card to filter policies</p>';
+            html += '<button class="btn btn-primary" onclick="toggleAllPolicyDetails(\'ap-results\')" style="font-size: 0.85em; padding: 4px 12px;">Expand All</button>';
+            html += '</div>';
 
             html += '<div class="stats-grid">';
             html += `<div class="stat-card ${currentFilter === 'all' ? 'active' : ''}" onclick="filterAllPolicies('all')" style="cursor: pointer;">
@@ -2705,6 +2708,16 @@
             if (details) {
                 details.style.display = details.style.display === 'none' ? 'block' : 'none';
             }
+        }
+
+        function toggleAllPolicyDetails(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const details = container.querySelectorAll('.policy-details');
+            const allVisible = Array.from(details).every(d => d.style.display !== 'none');
+            details.forEach(d => d.style.display = allVisible ? 'none' : 'block');
+            const btn = container.querySelector('button[onclick*="toggleAllPolicyDetails"]');
+            if (btn) btn.textContent = allVisible ? 'Expand All' : 'Collapse All';
         }
 
         function changeAllPoliciesPage(newPage) {
