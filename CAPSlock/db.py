@@ -70,7 +70,10 @@ def load_named_locations(session) -> Dict[str, bool]:
                     except:
                         pass
 
-            location_trust_map[loc.objectId] = is_trusted
+            if loc.policyIdentifier:
+                location_trust_map[loc.policyIdentifier] = is_trusted
+            if loc.objectId:
+                location_trust_map[loc.objectId] = is_trusted
 
     except Exception as e:
         print(f"[!] Failed to load named locations: {e}")

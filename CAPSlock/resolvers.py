@@ -110,8 +110,11 @@ def build_name_resolver(session) -> NameResolver:
     locations = session.query(Policy).filter(Policy.policyType == 6).all()
     location_names_by_id = {}
     for loc in locations:
-        if loc.objectId and loc.displayName:
-            location_names_by_id[loc.objectId] = loc.displayName
+        if loc.displayName:
+            if loc.policyIdentifier:
+                location_names_by_id[loc.policyIdentifier] = loc.displayName
+            if loc.objectId and loc.objectId not in location_names_by_id:
+                location_names_by_id[loc.objectId] = loc.displayName
 
     return NameResolver(
         group_names_by_id=group_names_by_id,

@@ -1342,6 +1342,28 @@
                 }
             }
 
+            const devices = conditions.Devices;
+            if (devices) {
+                let devInc = [];
+                let devExc = [];
+                for (const block of (devices.Include || [])) {
+                    if (block.DeviceRule) {
+                        devInc.push(block.DeviceRule === 'All' ? 'All devices' : 'Device rule: ' + block.DeviceRule);
+                    }
+                }
+                for (const block of (devices.Exclude || [])) {
+                    if (block.DeviceRule) {
+                        devExc.push('Device rule: ' + block.DeviceRule);
+                    }
+                }
+                if (devInc.length > 0 || devExc.length > 0) {
+                    let val = '';
+                    if (devInc.length > 0) val += '<strong>Including:</strong> ' + devInc.join(', ');
+                    if (devExc.length > 0) val += (val ? '<br>' : '') + '<strong>Excluding:</strong> ' + devExc.join(', ');
+                    rows.push(['Device Filter', val]);
+                }
+            }
+
             const controls = detail.Controls;
             if (controls && controls.length > 0) {
                 let ctrlParts = [];

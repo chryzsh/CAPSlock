@@ -102,7 +102,8 @@ async def get_locations(
 
         result = []
         for loc in locations:
-            is_trusted = location_trust_map.get(loc.objectId, False)
+            loc_key = loc.policyIdentifier or loc.objectId
+            is_trusted = location_trust_map.get(loc_key, False)
 
 
             ip_ranges = []
@@ -126,7 +127,7 @@ async def get_locations(
 
             result.append({
                 "name": loc.displayName,
-                "id": loc.objectId,
+                "id": loc.policyIdentifier or loc.objectId,
                 "is_trusted": is_trusted,
                 "type": location_type,
             })
