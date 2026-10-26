@@ -112,8 +112,11 @@ def _eval_trusted_location_condition(detail: Dict[str, Any], signin_ctx: SignInC
     if not locs:
         return ConditionEval(matched=True, reason="Locations: no location condition present")
 
-    if signin_ctx.trusted_location is None:
-        return ConditionEval(matched=True, reason="Locations: scenario trusted_location not provided", runtime_dependent=True)
+    has_location = signin_ctx.location_id is not None
+    has_trusted = signin_ctx.trusted_location is not None
+
+    if not has_location and not has_trusted:
+        return ConditionEval(matched=True, reason="Locations: scenario location not provided", runtime_dependent=True)
 
     include_blocks = locs.get("Include") or []
     exclude_blocks = locs.get("Exclude") or []
@@ -126,85 +129,47 @@ def _eval_trusted_location_condition(detail: Dict[str, Any], signin_ctx: SignInC
     for blk in exclude_blocks:
         exc_locs.update(blk.get("Locations", []) or [])
 
-    # If we don't have the location trust map, fall back to runtime-dependent
-    if location_trust_map is None and (inc_locs or exc_locs):
-        return ConditionEval(
-            matched=True,
-            reason="Locations: policy uses named locations (location trust data not loaded)",
-            runtime_dependent=True
-        )
+    if location_trust_map is None:
+        location_trust_map = {}
 
-    # Evaluate based on scenario's trusted_location boolean
+    # Derive trusted status from the selected location when not explicitly set
     is_from_trusted = signin_ctx.trusted_location
+    if is_from_trusted is None and has_location:
+        is_from_trusted = location_trust_map.get(signin_ctx.location_id, False)
 
-    # FIRST: Check exclusions - if user matches an exclusion, policy does NOT apply
+    # --- Exclusions ---
     if exc_locs:
         if "All" in exc_locs:
-            # Excludes all locations - policy never applies
             return ConditionEval(matched=False, reason="Locations: policy excludes All locations")
 
-        if is_from_trusted:
-            # User is in trusted location - check if excluded
-            if "AllTrusted" in exc_locs:
-                return ConditionEval(matched=False, reason="Locations: user in trusted location, policy excludes AllTrusted")
+        if "AllTrusted" in exc_locs and is_from_trusted:
+            return ConditionEval(matched=False, reason="Locations: user in trusted location, policy excludes AllTrusted")
 
-            # Check if any specific excluded locations are trusted
-            for loc_id in exc_locs:
-                if loc_id in location_trust_map and location_trust_map[loc_id]:
-                    return ConditionEval(matched=False, reason="Locations: user in trusted location, policy excludes this trusted location")
-        else:
-            # User is NOT in trusted location - check if any excluded locations are untrusted
-            for loc_id in exc_locs:
-                if loc_id == "AllTrusted":
-                    continue  # User not in trusted location, so AllTrusted exclusion doesn't apply
-                if loc_id in location_trust_map and not location_trust_map[loc_id]:
-                    return ConditionEval(matched=False, reason="Locations: user not in trusted location, policy excludes this non-trusted location")
+        if has_location and signin_ctx.location_id in exc_locs:
+            return ConditionEval(matched=False, reason=f"Locations: user at excluded location ({signin_ctx.location_id})")
 
-    # SECOND: Check inclusions - if user matches an inclusion, policy applies
+    # --- Inclusions ---
     if not inc_locs:
-        # No inclusions specified means no location requirement
         return ConditionEval(matched=True, reason="Locations: no location inclusion specified")
 
     if "All" in inc_locs:
-        # Includes all locations (and we already checked exclusions above)
         return ConditionEval(matched=True, reason="Locations: policy includes All locations")
 
-    # Classify included locations as trusted vs untrusted
-    inc_trusted_locs = set()
-    inc_untrusted_locs = set()
+    if has_location:
+        if signin_ctx.location_id in inc_locs:
+            return ConditionEval(matched=True, reason=f"Locations: user at included location ({signin_ctx.location_id})")
+        if "AllTrusted" in inc_locs and is_from_trusted:
+            return ConditionEval(matched=True, reason="Locations: user in trusted location, policy includes AllTrusted")
+        return ConditionEval(matched=False, reason="Locations: user location not in include list")
 
-    for loc_id in inc_locs:
-        if loc_id == "AllTrusted":
-            inc_trusted_locs.add(loc_id)
-        elif loc_id in location_trust_map:
-            if location_trust_map[loc_id]:
-                inc_trusted_locs.add(loc_id)
-            else:
-                inc_untrusted_locs.add(loc_id)
-        else:
-            # Unknown location - conservatively treat as untrusted
-            inc_untrusted_locs.add(loc_id)
+    # No specific location, only trusted boolean
+    if "AllTrusted" in inc_locs:
+        if is_from_trusted:
+            return ConditionEval(matched=True, reason="Locations: user in trusted location, policy includes AllTrusted")
+        return ConditionEval(matched=False, reason="Locations: policy requires AllTrusted, user not in trusted location")
 
-    if is_from_trusted:
-        # User is signing in from a trusted location
-        if "AllTrusted" in inc_locs or inc_trusted_locs:
-            return ConditionEval(matched=True, reason="Locations: user in trusted location, policy includes trusted locations")
-        else:
-            # Policy only includes non-trusted locations
-            return ConditionEval(matched=False, reason="Locations: user in trusted location, but policy only includes non-trusted locations")
-    else:
-        # User is NOT signing in from a trusted location
-        if "AllTrusted" in inc_locs:
-            return ConditionEval(matched=False, reason="Locations: policy requires AllTrusted, but user not in trusted location")
-        elif inc_trusted_locs and not inc_untrusted_locs:
-            # Policy ONLY includes trusted locations
-            return ConditionEval(matched=False, reason="Locations: policy only includes trusted locations, but user not in trusted location")
-        elif inc_untrusted_locs:
-            # Policy includes non-trusted locations, which matches
-            return ConditionEval(matched=True, reason="Locations: user not in trusted location, policy includes non-trusted locations")
-        else:
-            # No matching inclusions
-            return ConditionEval(matched=False, reason="Locations: no matching location inclusions")
+    # Policy includes specific locations but we only have a trusted boolean
+    return ConditionEval(matched=True, reason="Locations: policy targets specific locations (cannot determine match from trusted boolean alone)", runtime_dependent=True)
 
 def _eval_user_risk_condition(detail: Dict[str, Any], signin_ctx: SignInContext) -> ConditionEval:
     cond = (detail.get("Conditions", {}) or {})

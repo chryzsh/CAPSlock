@@ -42,6 +42,7 @@ class WhatIfRequest(BaseModel):
     resource: Optional[str] = Field(None, description="Resource/App ID")
     acr: Optional[str] = Field(None, description="Authentication Context Class Reference")
     trusted_location: Optional[bool] = Field(None, description="Trusted location flag")
+    location_id: Optional[str] = Field(None, description="Specific named location ID")
     platform: Optional[str] = Field(None, description="Device platform")
     client_app: Optional[str] = Field(None, description="Client app type")
     signin_risk: Optional[str] = Field(None, description="Sign-in risk level")
@@ -60,6 +61,7 @@ class AnalyzeRequest(BaseModel):
     resource: Optional[str] = Field(None, description="Resource/App ID")
     acr: Optional[str] = Field(None, description="Authentication Context Class Reference")
     trusted_location: Optional[bool] = Field(None, description="Fixed trusted location (permuted if not provided)")
+    location_id: Optional[str] = Field(None, description="Specific named location ID")
     platform: Optional[str] = Field(None, description="Fixed platform (permuted if not provided)")
     client_app: Optional[str] = Field(None, description="Fixed client app (permuted if not provided)")
     signin_risk: Optional[str] = Field(None, description="Fixed sign-in risk (permuted if not provided)")
@@ -360,6 +362,7 @@ async def what_if(request: WhatIfRequest):
             app_id=normalize_unknown_str(request.resource),
             acr=normalize_unknown_str(request.acr),
             trusted_location=request.trusted_location,
+            location_id=request.location_id,
             platform=(request.platform.lower() if request.platform else None),
             client_app=request.client_app,
             signin_risk=(request.signin_risk.lower() if request.signin_risk else None),
@@ -394,6 +397,7 @@ async def what_if(request: WhatIfRequest):
                 "resource": signin_ctx.app_id,
                 "acr": signin_ctx.acr,
                 "trusted_location": signin_ctx.trusted_location,
+                "location_id": signin_ctx.location_id,
                 "platform": signin_ctx.platform,
                 "client_app": signin_ctx.client_app,
                 "signin_risk": signin_ctx.signin_risk,
@@ -442,6 +446,7 @@ async def analyze_gaps(request: AnalyzeRequest):
             app_id=normalize_unknown_str(request.resource),
             acr=normalize_unknown_str(request.acr),
             trusted_location=None,
+            location_id=None,
             platform=None,
             client_app=None,
             signin_risk=None,
@@ -454,6 +459,7 @@ async def analyze_gaps(request: AnalyzeRequest):
 
         fixed = {
             "trusted_location": request.trusted_location,
+            "location_id": request.location_id,
             "platform": (request.platform.lower() if request.platform else None),
             "client_app": request.client_app,
             "signin_risk": (request.signin_risk.lower() if request.signin_risk else None),

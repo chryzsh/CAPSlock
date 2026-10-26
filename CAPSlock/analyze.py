@@ -189,6 +189,7 @@ def iter_scenarios(
     platforms: Optional[str] = None,
     client_app: Optional[str] = None,
     trusted_location: Optional[bool] = None,
+    location_id: Optional[str] = None,
     signin_risk: Optional[str] = None,
     user_risk: Optional[str] = None,
     auth_flow: Optional[str] = None,
@@ -196,7 +197,10 @@ def iter_scenarios(
 ) -> Iterable[SignInContext]:
     platform_vals = _values_or_default(platforms, ["windows", "macos", "linux", "ios", "android"])
     client_vals = _values_or_default(client_app, [None, "browser", "mobileAppsAndDesktopClients", "exchangeActiveSync", "other"])
-    trusted_vals = _values_or_default(trusted_location, [None, True, False])
+    if location_id is not None:
+        trusted_vals = [None]
+    else:
+        trusted_vals = _values_or_default(trusted_location, [None, True, False])
     signin_vals = _values_or_default(signin_risk, [None, "none", "low", "medium", "high"])
     user_vals = _values_or_default(user_risk, [None, "low", "medium", "high"])
     auth_vals = _values_or_default(auth_flow, [None, "devicecodeflow", "authtransfer"])
@@ -209,6 +213,7 @@ def iter_scenarios(
             app_id=base.app_id,
             acr=base.acr,
             trusted_location=t,
+            location_id=location_id,
             platform=p,
             client_app=c,
             signin_risk=sr,
@@ -243,6 +248,7 @@ def analyze(
         platforms=fixed.get("platform"),
         client_app=fixed.get("client_app"),
         trusted_location=fixed.get("trusted_location"),
+        location_id=fixed.get("location_id"),
         signin_risk=fixed.get("signin_risk"),
         user_risk=fixed.get("user_risk"),
         auth_flow=fixed.get("auth_flow"),
