@@ -233,6 +233,7 @@ def analyze(
     max_scenarios: int = 1000,
     assume_groups: Optional[List[str]] = None,
     assume_roles: Optional[List[str]] = None,
+    exclude_groups: Optional[List[str]] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     gaps_out: List[Dict[str, Any]] = []
     gap_counts = {
@@ -262,6 +263,7 @@ def analyze(
             mode="what-if",
             assume_groups=assume_groups or [],
             assume_roles=assume_roles or [],
+            exclude_groups=exclude_groups or [],
         )
         gaps = _classify_gaps(results, ctx)
         for g in gaps:

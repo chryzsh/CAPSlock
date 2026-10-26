@@ -11,12 +11,15 @@ class UserContext:
     role_template_ids: Set[str]
     assumed_groups: Set[str] = None
     assumed_roles: Set[str] = None
+    excluded_groups: Set[str] = None
 
     def __post_init__(self):
         if self.assumed_groups is None:
             self.assumed_groups = set()
         if self.assumed_roles is None:
             self.assumed_roles = set()
+        if self.excluded_groups is None:
+            self.excluded_groups = set()
 
 
 @dataclass
