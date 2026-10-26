@@ -1395,9 +1395,9 @@
             }
 
             const controls = detail.Controls;
+            let ctrlParts = [];
+            let operator = '';
             if (controls && controls.length > 0) {
-                let ctrlParts = [];
-                let operator = '';
                 for (const block of controls) {
                     const ctrl = block.Control || [];
                     const ctrls = Array.isArray(ctrl) ? ctrl : [ctrl];
@@ -1411,6 +1411,18 @@
                     ctrlParts.push(...sessions.filter(s => s));
                     if (block.Operator) operator = block.Operator;
                 }
+            }
+            const topSess = detail.SessionControls;
+            if (topSess) {
+                const items = Array.isArray(topSess) ? topSess : [topSess];
+                ctrlParts.push(...items.filter(s => s));
+            }
+            if (detail.SignInFrequencyTimeSpan) {
+                ctrlParts = ctrlParts.map(c => c === 'SignInFrequency'
+                    ? `SignInFrequency (Every ${detail.SignInFrequencyTimeSpan})`
+                    : c);
+            }
+            if (ctrlParts.length > 0) {
                 const unique = [...new Set(ctrlParts)];
                 let label = 'Controls';
                 if (operator) label += ` (${operator})`;

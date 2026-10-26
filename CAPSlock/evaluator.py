@@ -122,6 +122,12 @@ def _policy_controls(detail: Dict[str, Any]) -> List[str]:
         elif isinstance(sess, str):
             names.append(sess)
 
+    top_sess = detail.get("SessionControls") or []
+    if isinstance(top_sess, list):
+        names.extend(top_sess)
+    elif isinstance(top_sess, str):
+        names.append(top_sess)
+
     seen: Set[str] = set()
     out: List[str] = []
     for n in names:
