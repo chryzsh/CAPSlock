@@ -1092,7 +1092,13 @@
                 const res = await fetch(`/api/names?${params}`);
                 if (res.ok) {
                     nameMap = await res.json();
+                    console.log('Name map loaded:', Object.keys(nameMap.users || {}).length, 'users,',
+                        Object.keys(nameMap.apps || {}).length, 'apps,',
+                        Object.keys(nameMap.groups || {}).length, 'groups,',
+                        Object.keys(nameMap.locations || {}).length, 'locations');
                     populateAppDatalist();
+                } else {
+                    console.warn('Name map request failed:', res.status, await res.text());
                 }
             } catch (e) {
                 console.warn('Failed to load name map:', e);
@@ -1100,10 +1106,15 @@
         }
 
         function resolveName(guid) {
-            if (!nameMap || !guid) return null;
-            return nameMap.users[guid] || nameMap.groups[guid] ||
-                   nameMap.roles_by_template[guid] || nameMap.roles_by_object[guid] ||
-                   nameMap.apps[guid] || nameMap.locations[guid] || null;
+            if (!guid) return null;
+            if (nameMap) {
+                const found = nameMap.users[guid] || nameMap.groups[guid] ||
+                       nameMap.roles_by_template[guid] || nameMap.roles_by_object[guid] ||
+                       nameMap.apps[guid] || nameMap.locations[guid] || null;
+                if (found) return found;
+            }
+            const wk = WELL_KNOWN_APPS.find(a => a.id === guid);
+            return wk ? wk.name : null;
         }
 
         function resolveOrRaw(guid) {
