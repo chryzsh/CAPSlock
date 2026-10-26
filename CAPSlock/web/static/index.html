@@ -596,6 +596,8 @@
         .hr-summary { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 0.9em; }
         .hr-summary td { padding: 6px 10px; border: 1px solid #ddd; vertical-align: top; }
         .hr-summary td:first-child { font-weight: 600; white-space: nowrap; width: 120px; background: #f9f9f9; }
+        .hr-summary tr.match-row td { background: #e8f5e9; border-color: #a5d6a7; }
+        .hr-summary tr.match-row td:first-child { background: #c8e6c9; }
     </style>
 </head>
 <body>
@@ -835,6 +837,17 @@
                                 <div class="form-group">
                                     <label for="wi-entra-joined">Device Entra/Hybrid Joined</label>
                                     <select id="wi-entra-joined" class="form-control">
+                                        <option value="">Not specified</option>
+                                        <option value="true">True</option>
+                                        <option value="false">False</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="wi-device-filter">Device Filter Match</label>
+                                    <select id="wi-device-filter" class="form-control">
                                         <option value="">Not specified</option>
                                         <option value="true">True</option>
                                         <option value="false">False</option>
@@ -1170,11 +1183,22 @@
             return parts.map(p => escapeHtml(p)).join(', ');
         }
 
-        function renderHumanReadable(detail) {
+        function renderHumanReadable(detail, appliesReason) {
             const conditions = detail?.Conditions;
             if (!conditions) return '';
 
             let rows = [];
+
+            if (appliesReason) {
+                let reasonHtml = escapeHtml(appliesReason);
+                const sigIdx = reasonHtml.indexOf(' | Signal-dependent:');
+                if (sigIdx !== -1) {
+                    const matchPart = reasonHtml.substring(0, sigIdx);
+                    const sigPart = reasonHtml.substring(sigIdx + 3);
+                    reasonHtml = matchPart + '<br><span style="color: #856404;">' + sigPart + '</span>';
+                }
+                rows.push(['Matched via', reasonHtml]);
+            }
 
             const users = conditions.Users;
             if (users) {
@@ -1345,7 +1369,8 @@
 
             let html = '<table class="hr-summary">';
             for (const [label, value] of rows) {
-                html += `<tr><td>${escapeHtml(label)}</td><td>${value}</td></tr>`;
+                const rowClass = label === 'Matched via' ? ' class="match-row"' : '';
+                html += `<tr${rowClass}><td>${escapeHtml(label)}</td><td>${value}</td></tr>`;
             }
             html += '</table>';
             return html;
@@ -1858,6 +1883,8 @@
                     document.getElementById('wi-device-compliant').value === 'true' : null,
                 device_hybrid_joined: document.getElementById('wi-entra-joined').value ?
                     document.getElementById('wi-entra-joined').value === 'true' : null,
+                device_filter: document.getElementById('wi-device-filter').value ?
+                    document.getElementById('wi-device-filter').value === 'true' : null,
                 assume_groups: assumeGroupsValue ? assumeGroupsValue.split(',').map(g => g.trim()).filter(g => g) : null,
                 assume_roles: assumeRolesValue ? assumeRolesValue.split(',').map(r => r.trim()).filter(r => r) : null,
                 db_path: dbPath
@@ -1906,13 +1933,33 @@
                 html += '</div></div>';
             }
 
-            html += '<div class="scenario-box"><h4>Scenario Parameters</h4><div class="scenario-grid">';
-            for (const [key, value] of Object.entries(data.scenario)) {
-                if (value !== null) {
-                    html += `<div class="scenario-item"><span class="scenario-label">${key}:</span><span class="scenario-value">${value}</span></div>`;
-                }
+            const scenarioLabels = {
+                resource: 'Resource',
+                acr: 'User Action',
+                trusted_location: 'Trusted Location',
+                platform: 'Platform',
+                client_app: 'Client App',
+                signin_risk: 'Sign-in Risk',
+                user_risk: 'User Risk',
+                auth_flow: 'Auth Flow',
+                device_filter: 'Device Filter',
+                device_compliant: 'Device Compliant',
+                device_hybrid_joined: 'Hybrid Joined',
+            };
+            const s = data.scenario || {};
+            const scenarioItems = Object.entries({...s, device_compliant: data.device_compliant, device_hybrid_joined: data.device_hybrid_joined})
+                .filter(([_, v]) => v !== null && v !== undefined)
+                .map(([k, v]) => {
+                    const label = scenarioLabels[k] || k;
+                    let displayVal = v;
+                    if (k === 'resource') displayVal = resolveOrRaw(String(v));
+                    return `<div class="scenario-item"><span class="scenario-label">${escapeHtml(label)}:</span><span class="scenario-value">${escapeHtml(String(displayVal))}</span></div>`;
+                });
+            if (scenarioItems.length > 0) {
+                html += '<div class="scenario-box"><h4>Scenario Parameters</h4><div class="scenario-grid">';
+                html += scenarioItems.join('');
+                html += '</div></div>';
             }
-            html += '</div></div>';
 
             html += '<div class="stats-grid">';
             html += `<div class="stat-card"><div class="stat-number">${data.counts.definitive}</div><div class="stat-label">Definitive</div></div>`;
@@ -2145,7 +2192,7 @@
                                             </div>
                                             ${policy.detail ? `
                                                 <div id="${detailsId}" class="policy-details" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd;" onclick="event.stopPropagation()">
-                                                    ${renderHumanReadable(policy.detail)}
+                                                    ${renderHumanReadable(policy.detail, policy.reason)}
                                                     <details style="margin-top: 8px;">
                                                         <summary style="cursor: pointer; font-size: 0.85em; color: #666; user-select: none;">Raw JSON</summary>
                                                         <pre style="background: #fff; padding: 8px; overflow-x: auto; font-size: 0.75em; border: 1px solid #ccc; margin-top: 8px;">${renderJsonWithGuidLinks(policy.detail)}</pre>
@@ -2171,7 +2218,7 @@
                                             </div>
                                             ${policy.detail ? `
                                                 <div id="${detailsId}" class="policy-details" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd;" onclick="event.stopPropagation()">
-                                                    ${renderHumanReadable(policy.detail)}
+                                                    ${renderHumanReadable(policy.detail, policy.reason)}
                                                     <details style="margin-top: 8px;">
                                                         <summary style="cursor: pointer; font-size: 0.85em; color: #666; user-select: none;">Raw JSON</summary>
                                                         <pre style="background: #fff; padding: 8px; overflow-x: auto; font-size: 0.75em; border: 1px solid #ccc; margin-top: 8px;">${renderJsonWithGuidLinks(policy.detail)}</pre>
@@ -2267,7 +2314,7 @@
                         <div class="policy-reason">${policy.applies_reason}</div>
                         ${policy.detail ? `
                             <div id="${detailsId}" class="policy-details" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #ddd;" onclick="event.stopPropagation()">
-                                ${renderHumanReadable(policy.detail)}
+                                ${renderHumanReadable(policy.detail, policy.applies_reason)}
                                 <details style="margin-top: 8px;">
                                     <summary style="cursor: pointer; font-size: 0.85em; color: #666; user-select: none;">Raw JSON</summary>
                                     <pre style="background: #f5f5f5; padding: 12px; overflow-x: auto; font-size: 0.8em; border: 1px solid #ddd; margin-top: 8px;">${renderJsonWithGuidLinks(policy.detail)}</pre>
