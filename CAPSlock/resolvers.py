@@ -107,6 +107,7 @@ def build_name_resolver(session) -> NameResolver:
             if aid and aid not in app_names_by_id:
                 app_names_by_id[aid] = dname
 
+    import json as _json
     locations = session.query(Policy).filter(Policy.policyType == 6).all()
     location_names_by_id = {}
     for loc in locations:
@@ -115,6 +116,15 @@ def build_name_resolver(session) -> NameResolver:
                 location_names_by_id[loc.policyIdentifier] = loc.displayName
             if loc.objectId and loc.objectId not in location_names_by_id:
                 location_names_by_id[loc.objectId] = loc.displayName
+        if loc.policyDetail:
+            for raw in loc.policyDetail:
+                try:
+                    detail = _json.loads(raw)
+                    knp = detail.get("KnownNetworkPolicies")
+                    if knp and knp.get("NetworkId") and knp.get("NetworkName"):
+                        location_names_by_id[knp["NetworkId"]] = knp["NetworkName"].strip()
+                except Exception:
+                    pass
 
     return NameResolver(
         group_names_by_id=group_names_by_id,
