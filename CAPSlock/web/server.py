@@ -137,6 +137,26 @@ async def get_locations(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/names")
+async def get_names(
+    db_path: str = Query(DB_PATH, description="Path to roadrecon.db"),
+):
+    from CAPSlock.resolvers import build_name_resolver
+    session = get_session(db_path)
+    try:
+        resolver = build_name_resolver(session)
+        return {
+            "users": resolver.user_names_by_id,
+            "groups": resolver.group_names_by_id,
+            "roles_by_template": resolver.role_names_by_template_id,
+            "roles_by_object": resolver.role_names_by_object_id,
+            "apps": resolver.app_names_by_id,
+            "locations": resolver.location_names_by_id,
+        }
+    finally:
+        session.close()
+
+
 @app.get("/api/all-policies")
 async def get_all_policies(
     db_path: str = Query(DB_PATH, description="Path to roadrecon.db"),
