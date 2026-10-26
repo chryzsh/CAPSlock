@@ -868,6 +868,13 @@
                                 </div>
                             </div>
 
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="wi-exclude-groups">Exclude Groups <small>(comma-separated IDs or names)</small></label>
+                                    <input type="text" id="wi-exclude-groups" class="form-control" placeholder="CA-Persona-Admins, MFA-Required-Users">
+                                </div>
+                            </div>
+
                             <button type="submit" class="btn btn-primary">Run Analysis</button>
                         </form>
                     </div>
@@ -1017,6 +1024,10 @@
                                 <div class="form-group">
                                     <label for="an-assume-roles">Assume Roles <small>(comma-separated IDs or names)</small></label>
                                     <input type="text" id="an-assume-roles" class="form-control" placeholder="Global Administrator, Intune Administrator">
+                                </div>
+                                <div class="form-group">
+                                    <label for="an-exclude-groups">Exclude Groups <small>(comma-separated IDs or names)</small></label>
+                                    <input type="text" id="an-exclude-groups" class="form-control" placeholder="CA-Persona-Admins, MFA-Required-Users">
                                 </div>
                             </div>
 
@@ -1934,6 +1945,7 @@
 
             const assumeGroupsValue = document.getElementById('wi-assume-groups').value;
             const assumeRolesValue = document.getElementById('wi-assume-roles').value;
+            const excludeGroupsValue = document.getElementById('wi-exclude-groups').value;
 
             const requestBody = {
                 user: document.getElementById('wi-user').value,
@@ -1953,6 +1965,7 @@
                     document.getElementById('wi-device-filter').value === 'true' : null,
                 assume_groups: assumeGroupsValue ? assumeGroupsValue.split(',').map(g => g.trim()).filter(g => g) : null,
                 assume_roles: assumeRolesValue ? assumeRolesValue.split(',').map(r => r.trim()).filter(r => r) : null,
+                exclude_groups: excludeGroupsValue ? excludeGroupsValue.split(',').map(g => g.trim()).filter(g => g) : null,
                 db_path: dbPath
             };
 
@@ -2146,6 +2159,8 @@
                     document.getElementById('an-assume-groups').value.split(',').map(g => g.trim()).filter(g => g) : null,
                 assume_roles: document.getElementById('an-assume-roles').value ?
                     document.getElementById('an-assume-roles').value.split(',').map(r => r.trim()).filter(r => r) : null,
+                exclude_groups: document.getElementById('an-exclude-groups').value ?
+                    document.getElementById('an-exclude-groups').value.split(',').map(g => g.trim()).filter(g => g) : null,
                 db_path: dbPath
             };
 

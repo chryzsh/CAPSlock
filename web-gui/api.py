@@ -53,6 +53,7 @@ class WhatIfRequest(BaseModel):
     device_hybrid_joined: Optional[bool] = Field(None, description="Device hybrid joined flag")
     assume_groups: Optional[List[str]] = Field(None, description="Assumed group memberships")
     assume_roles: Optional[List[str]] = Field(None, description="Assumed role memberships")
+    exclude_groups: Optional[List[str]] = Field(None, description="Groups to exclude from membership")
     db_path: Optional[str] = Field(DB_PATH, description="Path to roadrecon.db")
 
 
@@ -72,6 +73,7 @@ class AnalyzeRequest(BaseModel):
     device_hybrid_joined: Optional[bool] = Field(None, description="Device hybrid joined flag")
     assume_groups: Optional[List[str]] = Field(None, description="Assumed group memberships")
     assume_roles: Optional[List[str]] = Field(None, description="Assumed role memberships")
+    exclude_groups: Optional[List[str]] = Field(None, description="Groups to exclude from membership")
     max_scenarios: int = Field(1000, description="Maximum scenarios to evaluate")
     db_path: Optional[str] = Field(DB_PATH, description="Path to roadrecon.db")
 
@@ -381,6 +383,7 @@ async def what_if(request: WhatIfRequest):
                 mode="what-if",
                 assume_groups=request.assume_groups or [],
                 assume_roles=request.assume_roles or [],
+                exclude_groups=request.exclude_groups or [],
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -476,6 +479,7 @@ async def analyze_gaps(request: AnalyzeRequest):
             max_scenarios=request.max_scenarios,
             assume_groups=request.assume_groups or [],
             assume_roles=request.assume_roles or [],
+            exclude_groups=request.exclude_groups or [],
         )
 
         session.close()
