@@ -1124,74 +1124,123 @@
 
             const users = conditions.Users;
             if (users) {
-                let incParts = [];
-                let excParts = [];
-                for (const block of (users.Include || [])) {
-                    if (block.Users?.includes('All')) incParts.push('All users');
-                    else if (block.Users?.includes('GuestsOrExternalUsers')) incParts.push('Guests or external users');
-                    else if (block.Users) block.Users.forEach(u => incParts.push(resolveOrRaw(u)));
-                    if (block.Groups?.includes('All')) incParts.push('All groups');
-                    else if (block.Groups) block.Groups.forEach(g => incParts.push(resolveOrRaw(g)));
-                    const roles = block.Roles || block.DirectoryRoles || block.RoleTemplateIds || [];
-                    roles.forEach(r => incParts.push(resolveOrRaw(r)));
+                function collectTargets(blocks) {
+                    const u = [], g = [], r = [];
+                    let allUsers = false, allGroups = false, guests = false;
+                    for (const block of blocks) {
+                        if (block.Users?.includes('All')) allUsers = true;
+                        else if (block.Users?.includes('GuestsOrExternalUsers')) guests = true;
+                        else if (block.Users) block.Users.forEach(id => u.push(resolveOrRaw(id)));
+                        if (block.Groups?.includes('All')) allGroups = true;
+                        else if (block.Groups) block.Groups.forEach(id => g.push(resolveOrRaw(id)));
+                        const roles = block.Roles || block.DirectoryRoles || block.RoleTemplateIds || [];
+                        roles.forEach(id => r.push(resolveOrRaw(id)));
+                    }
+                    const parts = [];
+                    if (allUsers) parts.push('All users');
+                    if (guests) parts.push('Guests or external users');
+                    if (allGroups) parts.push('All groups');
+                    if (u.length > 0) parts.push('Users: ' + u.join(', '));
+                    if (g.length > 0) parts.push('Groups: ' + g.join(', '));
+                    if (r.length > 0) parts.push('Roles: ' + r.join(', '));
+                    return parts;
                 }
-                for (const block of (users.Exclude || [])) {
-                    if (block.Users) {
-                        const resolved = block.Users.map(u => resolveOrRaw(u));
-                        if (resolved.length > 0) excParts.push('Users: ' + resolved.join(', '));
-                    }
-                    if (block.Groups) {
-                        const resolved = block.Groups.map(g => resolveOrRaw(g));
-                        if (resolved.length > 0) excParts.push('Groups: ' + resolved.join(', '));
-                    }
-                    const roles = block.Roles || block.DirectoryRoles || block.RoleTemplateIds || [];
-                    if (roles.length > 0) {
-                        const resolved = roles.map(r => resolveOrRaw(r));
-                        excParts.push('Roles: ' + resolved.join(', '));
-                    }
-                }
-                let val = 'Including: ' + formatTargetList(incParts);
-                if (excParts.length > 0) val += '<br>Excluding: ' + excParts.map(p => escapeHtml(p)).join(' / ');
+                const incParts = collectTargets(users.Include || []);
+                const excParts = collectTargets(users.Exclude || []);
+                let val = '<strong>Including:</strong> ' + (incParts.length > 0 ? incParts.join(', ') : 'None');
+                if (excParts.length > 0) val += '<br><strong>Excluding:</strong> ' + excParts.join(', ');
                 rows.push(['Applies to', val]);
             }
 
             const apps = conditions.Applications;
             if (apps) {
                 let incParts = [];
+                let excParts = [];
                 for (const block of (apps.Include || [])) {
-                    if (block.Applications?.includes('All')) incParts.push('All applications');
+                    if (block.Applications?.includes('All')) incParts.push('All cloud apps');
                     else if (block.Applications?.includes('None')) incParts.push('None');
                     else if (block.Applications) block.Applications.forEach(a => incParts.push(resolveOrRaw(a)));
                     if (block.Acrs) block.Acrs.forEach(a => incParts.push('Action: ' + a));
                 }
-                rows.push(['Resources', 'Including: ' + formatTargetList(incParts)]);
+                for (const block of (apps.Exclude || [])) {
+                    if (block.Applications) block.Applications.forEach(a => excParts.push(resolveOrRaw(a)));
+                }
+                let val = '<strong>Including:</strong> ' + (incParts.length > 0 ? incParts.join(', ') : 'None');
+                if (excParts.length > 0) val += '<br><strong>Excluding:</strong> ' + excParts.join(', ');
+                rows.push(['Resources', val]);
             }
 
             const locs = conditions.Locations;
             if (locs) {
-                let locParts = [];
+                let locInc = [];
+                let locExc = [];
                 for (const block of (locs.Include || [])) {
                     if (block.Locations) block.Locations.forEach(l => {
-                        if (l === 'All') locParts.push('All locations');
-                        else if (l === 'AllTrusted') locParts.push('All trusted locations');
-                        else locParts.push(resolveOrRaw(l));
+                        if (l === 'All') locInc.push('All locations');
+                        else if (l === 'AllTrusted') locInc.push('All trusted locations');
+                        else locInc.push(resolveOrRaw(l));
                     });
                 }
-                if (locParts.length > 0) rows.push(['Locations', 'Including: ' + formatTargetList(locParts)]);
-            }
-
-            const platforms = conditions.Platforms;
-            if (platforms) {
-                let platParts = [];
-                for (const block of (platforms.Include || [])) {
-                    if (block.DevicePlatforms) platParts.push(...block.DevicePlatforms);
+                for (const block of (locs.Exclude || [])) {
+                    if (block.Locations) block.Locations.forEach(l => {
+                        if (l === 'AllTrusted') locExc.push('All trusted locations');
+                        else locExc.push(resolveOrRaw(l));
+                    });
                 }
-                if (platParts.length > 0) rows.push(['Platforms', formatTargetList(platParts)]);
+                if (locInc.length > 0 || locExc.length > 0) {
+                    let val = '';
+                    if (locInc.length > 0) val += '<strong>Including:</strong> ' + locInc.join(', ');
+                    if (locExc.length > 0) val += (val ? '<br>' : '') + '<strong>Excluding:</strong> ' + locExc.join(', ');
+                    rows.push(['Locations', val]);
+                }
             }
 
-            const clientApps = conditions.ClientAppTypes;
-            if (clientApps && clientApps.length > 0) {
-                rows.push(['Client apps', formatTargetList(clientApps)]);
+            const platforms = conditions.DevicePlatforms || conditions.Platforms;
+            if (platforms) {
+                let platInc = [];
+                let platExc = [];
+                for (const block of (platforms.Include || [])) {
+                    if (block.DevicePlatforms) {
+                        if (block.DevicePlatforms.includes('All')) platInc.push('All platforms');
+                        else platInc.push(...block.DevicePlatforms);
+                    }
+                }
+                for (const block of (platforms.Exclude || [])) {
+                    if (block.DevicePlatforms) platExc.push(...block.DevicePlatforms);
+                }
+                if (platInc.length > 0 || platExc.length > 0) {
+                    let val = '';
+                    if (platInc.length > 0) val += platInc.join(', ');
+                    if (platExc.length > 0) val += (val ? ', excluding ' : 'Excluding: ') + platExc.join(', ');
+                    rows.push(['Platforms', val]);
+                }
+            }
+
+            const clientTypes = conditions.ClientTypes;
+            if (clientTypes) {
+                let ctInc = [];
+                for (const block of (clientTypes.Include || [])) {
+                    if (block.ClientTypes) ctInc.push(...block.ClientTypes);
+                }
+                if (ctInc.length > 0) rows.push(['Client apps', ctInc.join(', ')]);
+            }
+
+            for (const [condKey, label] of [['SignInRisks', 'Sign-in risk'], ['UserRisks', 'User risk'], ['AuthFlows', 'Auth flow']]) {
+                const section = conditions[condKey];
+                if (section) {
+                    let inc = [], exc = [];
+                    for (const block of (section.Include || [])) {
+                        if (block[condKey]) inc.push(...block[condKey]);
+                    }
+                    for (const block of (section.Exclude || [])) {
+                        if (block[condKey]) exc.push(...block[condKey]);
+                    }
+                    if (inc.length > 0 || exc.length > 0) {
+                        let val = inc.join(', ');
+                        if (exc.length > 0) val += (val ? ', excluding ' : 'Excluding: ') + exc.join(', ');
+                        rows.push([label, val]);
+                    }
+                }
             }
 
             const controls = detail.Controls;
