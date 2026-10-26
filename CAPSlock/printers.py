@@ -105,6 +105,12 @@ def render_conditions_summary(detail: dict, resolver: Optional[NameResolver] = N
         if exc_roles:
             out.append(f"    Exclude Roles: {', '.join(exc_roles[:6])}{', ...' if len(exc_roles) > 6 else ''}")
 
+    # Service Principals (workload identity)
+    sp_inc_b, sp_exc_b = _cond_blocks(cond, "ServicePrincipals")
+    sp_inc = resolve(_flatten_list(sp_inc_b, "ServicePrincipals"), "app")
+    sp_exc = resolve(_flatten_list(sp_exc_b, "ServicePrincipals"), "app")
+    out += _format_inc_exc("Service Principals", sp_inc, sp_exc)
+
     # Locations
     l_inc_b, l_exc_b = _cond_blocks(cond, "Locations")
     l_inc = resolve(_flatten_list(l_inc_b, "Locations"), "location")

@@ -10,7 +10,7 @@ import uvicorn
 
 from CAPSlock.db import get_session, DB_PATH
 from CAPSlock.models import SignInContext
-from CAPSlock.query import get_policy_results_for_user
+from CAPSlock.query import get_policy_results_for_user, get_policy_results_for_sp
 from CAPSlock.analyze import analyze
 from CAPSlock.serializers import (
     categorize_get_policies_results,
@@ -264,6 +264,67 @@ async def get_policies(
         session.close()
         return response
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sp-policies")
+async def get_sp_policies_api(
+    sp: str = Query(..., description="Service Principal name, objectId, or appId"),
+    app: Optional[str] = Query(None, description="Application ID filter"),
+    results: str = Query("applied", description="Results mode: applied, exclusions, or all"),
+    db_path: str = Query(DB_PATH, description="Path to roadrecon.db"),
+):
+    try:
+        session = get_session(db_path)
+        signin_ctx = SignInContext(app_id=app)
+
+        try:
+            policy_results = get_policy_results_for_sp(
+                session=session,
+                sp_identifier=sp.strip(),
+                signin_ctx=signin_ctx,
+                mode="get-policies",
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        categorized = categorize_get_policies_results(policy_results)
+
+        if results == "applied":
+            response = {
+                "sp": sp,
+                "results_mode": results,
+                "policies": categorized["applied"],
+                "count": categorized["applied_count"],
+            }
+        elif results == "exclusions":
+            response = {
+                "sp": sp,
+                "results_mode": results,
+                "policies": categorized["excluded"],
+                "count": categorized["excluded_count"],
+            }
+        else:
+            response = {
+                "sp": sp,
+                "results_mode": results,
+                "applied": categorized["applied"],
+                "excluded": categorized["excluded"],
+                "not_included": categorized["not_included"],
+                "counts": {
+                    "applied": categorized["applied_count"],
+                    "excluded": categorized["excluded_count"],
+                    "not_included": categorized["not_included_count"],
+                    "total": categorized["total_policies"],
+                },
+            }
+
+        session.close()
+        return response
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

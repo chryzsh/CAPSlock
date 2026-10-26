@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict, Optional, Set
-from CAPSlock.models import UserContext, TargetingResult, NameResolver
+from CAPSlock.models import UserContext, WorkloadContext, TargetingResult, NameResolver
 from CAPSlock.resolvers import friendly_ids
 
 
@@ -163,6 +163,89 @@ def evaluate_user_targeting(detail: Dict[str, Any], user_ctx: UserContext, resol
     return TargetingResult(
         status="not_targeted",
         applies_reason="Not included: no include rules understood",
+        matched_include_users=[],
+        matched_include_groups=[],
+        matched_include_roles=[],
+        matched_exclude_users=[],
+        matched_exclude_groups=[],
+        matched_exclude_roles=[],
+    )
+
+
+def evaluate_sp_targeting(detail: Dict[str, Any], wl_ctx: WorkloadContext, resolver: Optional[NameResolver] = None) -> TargetingResult:
+    cond_sps = (detail.get("Conditions", {}) or {}).get("ServicePrincipals", {}) or {}
+    include_blocks = cond_sps.get("Include") or []
+    exclude_blocks = cond_sps.get("Exclude") or []
+
+    if not cond_sps:
+        return TargetingResult(
+            status="not_targeted",
+            applies_reason="Not a workload identity policy",
+            matched_include_users=[],
+            matched_include_groups=[],
+            matched_include_roles=[],
+            matched_exclude_users=[],
+            matched_exclude_groups=[],
+            matched_exclude_roles=[],
+        )
+
+    inc_sps: Set[str] = set()
+    include_all = False
+
+    for blk in include_blocks:
+        sps = blk.get("ServicePrincipals") or []
+        if "All" in sps:
+            include_all = True
+        inc_sps.update(s for s in sps if s != "All")
+
+    exc_sps: Set[str] = set()
+    for blk in exclude_blocks:
+        sps = blk.get("ServicePrincipals") or []
+        exc_sps.update(sps)
+
+    if wl_ctx.object_id in exc_sps:
+        friendly = friendly_ids(resolver, [wl_ctx.object_id], "app")
+        return TargetingResult(
+            status="excluded",
+            applies_reason=f"Excluded: service principal explicitly excluded ({friendly[0]})",
+            matched_exclude_users=[wl_ctx.object_id],
+            matched_include_users=[],
+            matched_include_groups=[],
+            matched_include_roles=[],
+            matched_exclude_groups=[],
+            matched_exclude_roles=[],
+        )
+
+    if include_all:
+        return TargetingResult(
+            status="included",
+            applies_reason="Included: All service principals",
+            include_via="All service principals",
+            matched_include_users=[],
+            matched_include_groups=[],
+            matched_include_roles=[],
+            matched_exclude_users=[],
+            matched_exclude_groups=[],
+            matched_exclude_roles=[],
+        )
+
+    if wl_ctx.object_id in inc_sps:
+        friendly = friendly_ids(resolver, [wl_ctx.object_id], "app")
+        return TargetingResult(
+            status="included",
+            applies_reason=f"Included: service principal explicitly targeted ({friendly[0]})",
+            include_via="ServicePrincipal",
+            matched_include_users=[wl_ctx.object_id],
+            matched_include_groups=[],
+            matched_include_roles=[],
+            matched_exclude_users=[],
+            matched_exclude_groups=[],
+            matched_exclude_roles=[],
+        )
+
+    return TargetingResult(
+        status="not_targeted",
+        applies_reason="Not included: service principal not in include list",
         matched_include_users=[],
         matched_include_groups=[],
         matched_include_roles=[],

@@ -116,6 +116,13 @@ class TargetingResult:
 
 
 @dataclass
+class WorkloadContext:
+    sp: Any
+    object_id: str
+    app_id: str
+
+
+@dataclass
 class ConditionEval:
     matched: bool
     reason: str

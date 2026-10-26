@@ -3,9 +3,9 @@ from typing import List, Optional
 from sqlalchemy import func
 from roadtools.roadlib.metadef.database import User, Group, DirectoryRole, Application, ServicePrincipal
 from CAPSlock.db import load_capolicies, parse_policy_details, load_named_locations
-from CAPSlock.models import SignInContext, PolicyResult, UserContext
+from CAPSlock.models import SignInContext, PolicyResult, UserContext, WorkloadContext
 from CAPSlock.resolvers import build_name_resolver, expand_group_ids, roles_via_groups
-from CAPSlock.evaluator import evaluate_policy_detail
+from CAPSlock.evaluator import evaluate_policy_detail, evaluate_policy_detail_sp
 
 
 def _get_user_by_upn(session, upn: str) -> Optional[User]:
@@ -142,6 +142,62 @@ def get_policy_results_for_user(
             )
 
     return results
+
+def _find_service_principal(session, identifier: str) -> Optional[ServicePrincipal]:
+    sp = session.query(ServicePrincipal).filter(ServicePrincipal.objectId == identifier).one_or_none()
+    if sp:
+        return sp
+
+    sp = session.query(ServicePrincipal).filter(ServicePrincipal.appId == identifier).one_or_none()
+    if sp:
+        return sp
+
+    sp = session.query(ServicePrincipal).filter(
+        func.lower(ServicePrincipal.displayName) == identifier.strip().lower()
+    ).first()
+    return sp
+
+
+def get_policy_results_for_sp(
+    session,
+    sp_identifier: str,
+    signin_ctx: Optional[SignInContext] = None,
+    mode: str = "get-policies",
+) -> List[PolicyResult]:
+    if signin_ctx is None:
+        signin_ctx = SignInContext()
+
+    sp = _find_service_principal(session, sp_identifier)
+    if not sp:
+        raise ValueError(f"Service principal not found: {sp_identifier}")
+
+    wl_ctx = WorkloadContext(
+        sp=sp,
+        object_id=sp.objectId,
+        app_id=getattr(sp, "appId", "") or "",
+    )
+
+    resolver = build_name_resolver(session)
+    policies = load_capolicies(session)
+    location_trust_map = load_named_locations(session)
+
+    results: List[PolicyResult] = []
+    for p in policies:
+        for d in parse_policy_details(p):
+            results.append(
+                evaluate_policy_detail_sp(
+                    policy=p,
+                    detail=d,
+                    wl_ctx=wl_ctx,
+                    signin_ctx=signin_ctx,
+                    mode=mode,
+                    resolver=resolver,
+                    location_trust_map=location_trust_map,
+                )
+            )
+
+    return results
+
 
 def convert_from_id(session, object_id: str) -> List[str]:
     out: List[str] = []
