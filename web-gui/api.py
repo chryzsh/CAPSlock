@@ -109,9 +109,9 @@ async def get_locations(
             loc_key = loc.policyIdentifier or loc.objectId
             is_trusted = location_trust_map.get(loc_key, False)
 
-
             ip_ranges = []
             countries = []
+            knp_entries = []
             if loc.policyDetail:
                 for detail_raw in loc.policyDetail:
                     try:
@@ -120,7 +120,28 @@ async def get_locations(
                             ip_ranges = detail["IpRanges"]
                         if detail.get("CountriesAndRegions"):
                             countries = detail["CountriesAndRegions"]
-                    except:
+                        knp = detail.get("KnownNetworkPolicies")
+                        if knp and knp.get("NetworkId") and knp.get("NetworkName"):
+                            knp_ip_ranges = []
+                            for cidr_obj in (knp.get("CidrIpRanges") or []):
+                                if isinstance(cidr_obj, dict):
+                                    cidr = cidr_obj.get("CidrIpAddress")
+                                    if cidr:
+                                        knp_ip_ranges.append(cidr)
+                                elif isinstance(cidr_obj, str):
+                                    knp_ip_ranges.append(cidr_obj)
+                            knp_id = knp["NetworkId"]
+                            knp_trusted = False
+                            knp_cats = detail.get("Categories", []) or []
+                            if "trusted" in [str(c).lower() for c in knp_cats]:
+                                knp_trusted = True
+                            knp_entries.append({
+                                "name": knp["NetworkName"].strip(),
+                                "id": knp_id,
+                                "is_trusted": knp_trusted,
+                                "ip_ranges": knp_ip_ranges,
+                            })
+                    except Exception:
                         pass
 
             location_type = "Unknown"
@@ -128,12 +149,17 @@ async def get_locations(
                 location_type = f"IP-based ({len(ip_ranges)} range{'s' if len(ip_ranges) != 1 else ''})"
             elif countries:
                 location_type = f"Country-based ({len(countries)} countr{'ies' if len(countries) != 1 else 'y'})"
+            elif knp_entries:
+                location_type = f"Bundled ({len(knp_entries)} network{'s' if len(knp_entries) != 1 else ''})"
 
             result.append({
                 "name": loc.displayName,
                 "id": loc.policyIdentifier or loc.objectId,
                 "is_trusted": is_trusted,
                 "type": location_type,
+                "ip_ranges": ip_ranges,
+                "countries": countries,
+                "knp_entries": knp_entries,
             })
 
         session.close()
