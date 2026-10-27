@@ -2468,6 +2468,35 @@
                     ? '<span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold;">TRUSTED</span>'
                     : '<span style="background: #6c757d; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold;">NOT TRUSTED</span>';
 
+                let detailsHtml = '';
+                if (loc.ip_ranges && loc.ip_ranges.length > 0) {
+                    detailsHtml += '<div style="margin-top: 8px;"><strong>IP Ranges:</strong></div>';
+                    detailsHtml += '<div style="margin-top: 4px; padding: 8px; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; font-family: monospace; font-size: 0.85em;">';
+                    detailsHtml += loc.ip_ranges.map(r => typeof r === 'object' ? (r.CidrIpAddress || JSON.stringify(r)) : r).join('<br>');
+                    detailsHtml += '</div>';
+                }
+                if (loc.countries && loc.countries.length > 0) {
+                    detailsHtml += '<div style="margin-top: 8px;"><strong>Countries/Regions:</strong></div>';
+                    detailsHtml += '<div style="margin-top: 4px; padding: 8px; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; font-size: 0.85em;">';
+                    detailsHtml += loc.countries.join(', ');
+                    detailsHtml += '</div>';
+                }
+                if (loc.knp_entries && loc.knp_entries.length > 0) {
+                    detailsHtml += '<div style="margin-top: 8px;"><strong>Bundled Networks:</strong></div>';
+                    loc.knp_entries.forEach(knp => {
+                        const knpTrust = knp.is_trusted
+                            ? '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">TRUSTED</span>'
+                            : '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">NOT TRUSTED</span>';
+                        detailsHtml += `<div style="margin-top: 6px; padding: 8px; background: #fff; border: 1px solid #dee2e6; border-radius: 4px;">`;
+                        detailsHtml += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"><strong>${knp.name}</strong> ${knpTrust}</div>`;
+                        detailsHtml += `<div style="font-size: 0.85em; color: #666; margin-bottom: 4px;"><strong>ID:</strong> <code>${knp.id}</code></div>`;
+                        if (knp.ip_ranges && knp.ip_ranges.length > 0) {
+                            detailsHtml += '<div style="font-family: monospace; font-size: 0.85em;">' + knp.ip_ranges.join('<br>') + '</div>';
+                        }
+                        detailsHtml += '</div>';
+                    });
+                }
+
                 html += `
                     <div style="border: 1px solid #dee2e6; border-radius: 4px; padding: 16px; margin-bottom: 12px; background: #f8f9fa;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -2478,6 +2507,7 @@
                             <div style="margin-bottom: 4px;"><strong>ID:</strong> <code>${loc.id}</code></div>
                             <div><strong>Type:</strong> ${loc.type}</div>
                         </div>
+                        ${detailsHtml}
                     </div>
                 `;
             });
