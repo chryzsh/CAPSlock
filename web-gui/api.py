@@ -99,6 +99,16 @@ async def get_locations(
         from CAPSlock.db import load_named_locations
         from roadtools.roadlib.metadef.database import Policy
         import json
+        import base64
+        import zlib
+
+        def _decompress_cidrs(compressed_str):
+            try:
+                b = base64.b64decode(compressed_str)
+                raw = zlib.decompress(b, -zlib.MAX_WBITS)
+                return [c for c in raw.decode().split(",") if c]
+            except Exception:
+                return []
 
         session = get_session(db_path)
         location_trust_map = load_named_locations(session)
@@ -116,10 +126,10 @@ async def get_locations(
                 for detail_raw in loc.policyDetail:
                     try:
                         detail = json.loads(detail_raw)
-                        if detail.get("IpRanges"):
-                            ip_ranges = detail["IpRanges"]
-                        if detail.get("CountriesAndRegions"):
-                            countries = detail["CountriesAndRegions"]
+                        if detail.get("CompressedCidrIpRanges"):
+                            ip_ranges = _decompress_cidrs(detail["CompressedCidrIpRanges"])
+                        if detail.get("CountryIsoCodes"):
+                            countries = detail["CountryIsoCodes"]
                         knp = detail.get("KnownNetworkPolicies")
                         if knp and knp.get("NetworkId") and knp.get("NetworkName"):
                             knp_ip_ranges = []
