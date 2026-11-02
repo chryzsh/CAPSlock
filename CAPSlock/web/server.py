@@ -42,6 +42,7 @@ class WhatIfRequest(BaseModel):
     resource: Optional[str] = Field(None, description="Resource/App ID")
     acr: Optional[str] = Field(None, description="Authentication Context Class Reference")
     trusted_location: Optional[bool] = Field(None, description="Trusted location flag")
+    location_id: Optional[str] = Field(None, description="Specific named location ID")
     platform: Optional[str] = Field(None, description="Device platform")
     client_app: Optional[str] = Field(None, description="Client app type")
     signin_risk: Optional[str] = Field(None, description="Sign-in risk level")
@@ -60,6 +61,7 @@ class AnalyzeRequest(BaseModel):
     resource: Optional[str] = Field(None, description="Resource/App ID")
     acr: Optional[str] = Field(None, description="Authentication Context Class Reference")
     trusted_location: Optional[bool] = Field(None, description="Fixed trusted location (permuted if not provided)")
+    location_id: Optional[str] = Field(None, description="Specific named location ID")
     platform: Optional[str] = Field(None, description="Fixed platform (permuted if not provided)")
     client_app: Optional[str] = Field(None, description="Fixed client app (permuted if not provided)")
     signin_risk: Optional[str] = Field(None, description="Fixed sign-in risk (permuted if not provided)")
@@ -91,47 +93,13 @@ async def get_locations(
 ):
 
     try:
-        from CAPSlock.db import load_named_locations
-        from roadtools.roadlib.metadef.database import Policy
-        import json
+        from CAPSlock.query import describe_named_locations
 
         session = get_session(db_path)
-        location_trust_map = load_named_locations(session)
-        locations = session.query(Policy).filter(Policy.policyType == 6).all()
-
-        result = []
-        for loc in locations:
-            is_trusted = location_trust_map.get(loc.objectId, False)
-
-
-            ip_ranges = []
-            countries = []
-            if loc.policyDetail:
-                for detail_raw in loc.policyDetail:
-                    try:
-                        detail = json.loads(detail_raw)
-                        if detail.get("IpRanges"):
-                            ip_ranges = detail["IpRanges"]
-                        if detail.get("CountriesAndRegions"):
-                            countries = detail["CountriesAndRegions"]
-                    except:
-                        pass
-
-            location_type = "Unknown"
-            if ip_ranges:
-                location_type = f"IP-based ({len(ip_ranges)} range{'s' if len(ip_ranges) != 1 else ''})"
-            elif countries:
-                location_type = f"Country-based ({len(countries)} countr{'ies' if len(countries) != 1 else 'y'})"
-
-            result.append({
-                "name": loc.displayName,
-                "id": loc.objectId,
-                "is_trusted": is_trusted,
-                "type": location_type,
-            })
-
-        session.close()
-        return {"locations": sorted(result, key=lambda x: x["name"].lower())}
+        try:
+            return {"locations": describe_named_locations(session)}
+        finally:
+            session.close()
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -287,6 +255,7 @@ async def what_if(request: WhatIfRequest):
             app_id=normalize_unknown_str(request.resource),
             acr=normalize_unknown_str(request.acr),
             trusted_location=request.trusted_location,
+            location_id=request.location_id,
             platform=(request.platform.lower() if request.platform else None),
             client_app=request.client_app,
             signin_risk=(request.signin_risk.lower() if request.signin_risk else None),
@@ -321,6 +290,7 @@ async def what_if(request: WhatIfRequest):
                 "resource": signin_ctx.app_id,
                 "acr": signin_ctx.acr,
                 "trusted_location": signin_ctx.trusted_location,
+                "location_id": signin_ctx.location_id,
                 "platform": signin_ctx.platform,
                 "client_app": signin_ctx.client_app,
                 "signin_risk": signin_ctx.signin_risk,
@@ -371,6 +341,7 @@ async def analyze_gaps(request: AnalyzeRequest):
             app_id=normalize_unknown_str(request.resource),
             acr=normalize_unknown_str(request.acr),
             trusted_location=None,
+            location_id=None,
             platform=None,
             client_app=None,
             signin_risk=None,
@@ -383,6 +354,7 @@ async def analyze_gaps(request: AnalyzeRequest):
 
         fixed = {
             "trusted_location": request.trusted_location,
+            "location_id": request.location_id,
             "platform": (request.platform.lower() if request.platform else None),
             "client_app": request.client_app,
             "signin_risk": (request.signin_risk.lower() if request.signin_risk else None),

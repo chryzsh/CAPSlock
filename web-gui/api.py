@@ -96,84 +96,13 @@ async def get_locations(
 ):
 
     try:
-        from CAPSlock.db import load_named_locations
-        from roadtools.roadlib.metadef.database import Policy
-        import json
-        import base64
-        import zlib
-
-        def _decompress_cidrs(compressed_str):
-            try:
-                b = base64.b64decode(compressed_str)
-                raw = zlib.decompress(b, -zlib.MAX_WBITS)
-                return [c for c in raw.decode().split(",") if c]
-            except Exception:
-                return []
+        from CAPSlock.query import describe_named_locations
 
         session = get_session(db_path)
-        location_trust_map = load_named_locations(session)
-        locations = session.query(Policy).filter(Policy.policyType == 6).all()
-
-        result = []
-        for loc in locations:
-            loc_key = loc.policyIdentifier or loc.objectId
-            is_trusted = location_trust_map.get(loc_key, False)
-
-            ip_ranges = []
-            countries = []
-            knp_entries = []
-            if loc.policyDetail:
-                for detail_raw in loc.policyDetail:
-                    try:
-                        detail = json.loads(detail_raw)
-                        if detail.get("CompressedCidrIpRanges"):
-                            ip_ranges = _decompress_cidrs(detail["CompressedCidrIpRanges"])
-                        if detail.get("CountryIsoCodes"):
-                            countries = detail["CountryIsoCodes"]
-                        knp = detail.get("KnownNetworkPolicies")
-                        if knp and knp.get("NetworkId") and knp.get("NetworkName"):
-                            knp_ip_ranges = []
-                            for cidr_obj in (knp.get("CidrIpRanges") or []):
-                                if isinstance(cidr_obj, dict):
-                                    cidr = cidr_obj.get("CidrIpAddress")
-                                    if cidr:
-                                        knp_ip_ranges.append(cidr)
-                                elif isinstance(cidr_obj, str):
-                                    knp_ip_ranges.append(cidr_obj)
-                            knp_id = knp["NetworkId"]
-                            knp_trusted = False
-                            knp_cats = knp.get("Categories") or detail.get("Categories") or []
-                            if "trusted" in [str(c).lower() for c in knp_cats]:
-                                knp_trusted = True
-                            knp_entries.append({
-                                "name": knp["NetworkName"].strip(),
-                                "id": knp_id,
-                                "is_trusted": knp_trusted,
-                                "ip_ranges": knp_ip_ranges,
-                            })
-                    except Exception:
-                        pass
-
-            location_type = "Unknown"
-            if ip_ranges:
-                location_type = f"IP-based ({len(ip_ranges)} range{'s' if len(ip_ranges) != 1 else ''})"
-            elif countries:
-                location_type = f"Country-based ({len(countries)} countr{'ies' if len(countries) != 1 else 'y'})"
-            elif knp_entries:
-                location_type = f"Bundled ({len(knp_entries)} network{'s' if len(knp_entries) != 1 else ''})"
-
-            result.append({
-                "name": loc.displayName,
-                "id": loc.policyIdentifier or loc.objectId,
-                "is_trusted": is_trusted,
-                "type": location_type,
-                "ip_ranges": ip_ranges,
-                "countries": countries,
-                "knp_entries": knp_entries,
-            })
-
-        session.close()
-        return {"locations": sorted(result, key=lambda x: x["name"].lower())}
+        try:
+            return {"locations": describe_named_locations(session)}
+        finally:
+            session.close()
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
