@@ -142,7 +142,7 @@ async def get_locations(
                                     knp_ip_ranges.append(cidr_obj)
                             knp_id = knp["NetworkId"]
                             knp_trusted = False
-                            knp_cats = detail.get("Categories", []) or []
+                            knp_cats = knp.get("Categories") or detail.get("Categories") or []
                             if "trusted" in [str(c).lower() for c in knp_cats]:
                                 knp_trusted = True
                             knp_entries.append({

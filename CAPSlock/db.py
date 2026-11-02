@@ -82,7 +82,7 @@ def load_named_locations(session) -> Dict[str, bool]:
                         knp = detail.get("KnownNetworkPolicies")
                         if knp and knp.get("NetworkId"):
                             knp_trusted = False
-                            knp_cats = detail.get("Categories", []) or []
+                            knp_cats = knp.get("Categories") or detail.get("Categories") or []
                             if "trusted" in [str(c).lower() for c in knp_cats]:
                                 knp_trusted = True
                             location_trust_map[knp["NetworkId"]] = knp_trusted
