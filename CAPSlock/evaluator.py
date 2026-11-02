@@ -39,6 +39,8 @@ def evaluate_policy_detail(
             applies_reason=tgt.applies_reason,
         )
 
+    tgt_notes = list(tgt.runtime_notes or [])
+
     if mode == "get-policies":
         controls = _policy_controls(detail)
         effect = "Unknown"
@@ -48,6 +50,10 @@ def evaluate_policy_detail(
         elif controls:
             effect = "Grant"
 
+        reason = tgt.applies_reason
+        if tgt_notes:
+            reason += " | Signal-dependent: " + ", ".join(tgt_notes)
+
         return PolicyResult(
             applies=True,
             effect=effect,
@@ -55,10 +61,11 @@ def evaluate_policy_detail(
             state=state,
             policy=policy,
             detail=detail,
-            applies_reason=tgt.applies_reason,
+            applies_reason=reason,
         )
 
     matched_all, blockers, runtime_notes = evaluate_conditions(detail, signin_ctx, location_trust_map)
+    runtime_notes = tgt_notes + runtime_notes
     if not matched_all:
         reason = "Not applicable: " + "; ".join(blockers[:3]) + ("..." if len(blockers) > 3 else "")
         return PolicyResult(

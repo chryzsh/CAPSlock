@@ -90,8 +90,16 @@ def render_conditions_summary(detail: dict, resolver: Optional[NameResolver] = N
         "role",
     )
 
-    if any([inc_users, inc_groups, inc_roles, exc_users, exc_groups, exc_roles]):
+    from CAPSlock.external_users import describe_block
+    inc_ext = [describe_block(b["GuestsOrExternalUsers"]) for b in u_inc if b.get("GuestsOrExternalUsers")]
+    exc_ext = [describe_block(b["GuestsOrExternalUsers"]) for b in u_exc if b.get("GuestsOrExternalUsers")]
+
+    if any([inc_users, inc_groups, inc_roles, exc_users, exc_groups, exc_roles, inc_ext, exc_ext]):
         out.append("  Users:")
+        for e in inc_ext:
+            out.append(f"    Include Guests/External: {e}")
+        for e in exc_ext:
+            out.append(f"    Exclude Guests/External: {e}")
         if inc_users:
             out.append(f"    Include Users: {', '.join(inc_users[:6])}{', ...' if len(inc_users) > 6 else ''}")
         if inc_groups:
