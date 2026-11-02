@@ -198,7 +198,8 @@ def iter_scenarios(
     platform_vals = _values_or_default(platforms, ["windows", "macos", "linux", "ios", "android"])
     client_vals = _values_or_default(client_app, [None, "browser", "mobileAppsAndDesktopClients", "exchangeActiveSync", "other"])
     if location_id is not None:
-        trusted_vals = [None]
+        # A named location carries its own trust status; a fixed flag overrides it.
+        trusted_vals = [trusted_location]
     else:
         trusted_vals = _values_or_default(trusted_location, [None, True, False])
     signin_vals = _values_or_default(signin_risk, [None, "none", "low", "medium", "high"])

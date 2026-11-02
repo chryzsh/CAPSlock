@@ -152,6 +152,53 @@ def get_policy_results_for_user(
 
     return results
 
+def list_named_locations(session) -> List[dict]:
+    """Named locations as the web GUI location dropdown lists them: one entry per name.
+
+    IDs come from build_name_resolver(): policyIdentifier (what CA policies reference), the
+    objectId as a fallback, and the NetworkId of bundled KnownNetworkPolicies entries.
+    """
+    from CAPSlock.conditions import LEGACY_MFA_TRUSTED_IPS_ID
+
+    names = build_name_resolver(session).location_names_by_id
+    trust = load_named_locations(session)
+    out: List[dict] = []
+    seen_names = set()
+    for lid, name in names.items():
+        if name in seen_names:
+            continue
+        seen_names.add(name)
+        out.append({"id": lid, "name": name, "is_trusted": bool(trust.get(lid, False))})
+    if LEGACY_MFA_TRUSTED_IPS_ID not in names:
+        out.append({"id": LEGACY_MFA_TRUSTED_IPS_ID, "name": "MFA trusted IPs (legacy, not in roadrecon data)", "is_trusted": True})
+    return sorted(out, key=lambda x: x["name"].lower())
+
+
+def resolve_named_location(session, identifier: str) -> dict:
+    """Find a named location by ID or display name (case-insensitive). Raises ValueError if not found."""
+    ident = identifier.strip()
+    locations = list_named_locations(session)
+    names = build_name_resolver(session).location_names_by_id
+    trust = load_named_locations(session)
+
+    for lid, name in names.items():
+        if lid.lower() == ident.lower():
+            return {"id": lid, "name": name, "is_trusted": bool(trust.get(lid, False))}
+    for loc in locations:
+        if loc["id"].lower() == ident.lower() or loc["name"].strip().lower() == ident.lower():
+            return loc
+
+    partial = [loc for loc in locations if ident.lower() in loc["name"].lower()]
+    if len(partial) == 1:
+        return partial[0]
+    if partial:
+        raise ValueError(
+            f"Location '{identifier}' matches several named locations: "
+            + ", ".join(f"{l['name']} ({l['id']})" for l in partial[:10])
+        )
+    raise ValueError(f"Named location not found: {identifier} (see 'capslock list-locations')")
+
+
 def _find_service_principal(session, identifier: str) -> Optional[ServicePrincipal]:
     sp = session.query(ServicePrincipal).filter(ServicePrincipal.objectId == identifier).one_or_none()
     if sp:
