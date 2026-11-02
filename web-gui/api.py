@@ -352,6 +352,7 @@ async def get_sp_policies_api(
                 "results_mode": results,
                 "policies": categorized["applied"],
                 "count": categorized["applied_count"],
+                "report_only": categorized["report_only"],
             }
         elif results == "exclusions":
             response = {
@@ -367,10 +368,12 @@ async def get_sp_policies_api(
                 **sp_info,
                 "results_mode": results,
                 "applied": categorized["applied"],
+                "report_only": categorized["report_only"],
                 "excluded": categorized["excluded"],
                 "not_included": categorized["not_included"],
                 "counts": {
                     "applied": categorized["applied_count"],
+                    "report_only": categorized["report_only_count"],
                     "excluded": categorized["excluded_count"],
                     "not_included": categorized["not_included_count"],
                     "total": categorized["total_policies"],

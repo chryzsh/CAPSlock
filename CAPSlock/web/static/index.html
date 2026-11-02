@@ -1714,15 +1714,17 @@
             if (data.results_mode === 'all') {
                 html += '<p style="color: #888; font-size: 0.85em; margin-bottom: 12px;">Click on a card to filter policies</p>';
                 html += '<div class="stats-grid">';
-                html += `<div class="stat-card ${currentSpPoliciesFilter === 'all' ? 'active' : ''}" onclick="filterSpPolicies('all')" style="cursor: pointer;"><div class="stat-number">${data.counts.applied + data.counts.excluded + data.counts.not_included}</div><div class="stat-label">All</div></div>`;
+                html += `<div class="stat-card ${currentSpPoliciesFilter === 'all' ? 'active' : ''}" onclick="filterSpPolicies('all')" style="cursor: pointer;"><div class="stat-number">${data.counts.applied + (data.counts.report_only || 0) + data.counts.excluded + data.counts.not_included}</div><div class="stat-label">All</div></div>`;
                 html += `<div class="stat-card ${currentSpPoliciesFilter === 'applied' ? 'active' : ''}" onclick="filterSpPolicies('applied')" style="cursor: pointer;"><div class="stat-number">${data.counts.applied}</div><div class="stat-label">Applied</div></div>`;
+                html += `<div class="stat-card ${currentSpPoliciesFilter === 'report_only' ? 'active' : ''}" onclick="filterSpPolicies('report_only')" style="cursor: pointer;"><div class="stat-number">${data.counts.report_only || 0}</div><div class="stat-label">Report-only (not enforced)</div></div>`;
                 html += `<div class="stat-card ${currentSpPoliciesFilter === 'excluded' ? 'active' : ''}" onclick="filterSpPolicies('excluded')" style="cursor: pointer;"><div class="stat-number">${data.counts.excluded}</div><div class="stat-label">Excluded</div></div>`;
                 html += `<div class="stat-card ${currentSpPoliciesFilter === 'not_included' ? 'active' : ''}" onclick="filterSpPolicies('not_included')" style="cursor: pointer;"><div class="stat-number">${data.counts.not_included}</div><div class="stat-label">Not Targeted</div></div>`;
                 html += '</div>';
 
                 let filteredPolicies = [];
-                if (currentSpPoliciesFilter === 'all') filteredPolicies = [...(data.applied || []), ...(data.excluded || []), ...(data.not_included || [])];
+                if (currentSpPoliciesFilter === 'all') filteredPolicies = [...(data.applied || []), ...(data.report_only || []), ...(data.excluded || []), ...(data.not_included || [])];
                 else if (currentSpPoliciesFilter === 'applied') filteredPolicies = data.applied || [];
+                else if (currentSpPoliciesFilter === 'report_only') filteredPolicies = data.report_only || [];
                 else if (currentSpPoliciesFilter === 'excluded') filteredPolicies = data.excluded || [];
                 else if (currentSpPoliciesFilter === 'not_included') filteredPolicies = data.not_included || [];
 
@@ -1741,6 +1743,10 @@
                     html += renderPolicies(policies, 'sp');
                 } else {
                     html += '<p style="color: #888; margin-top: 16px;">No matching policies found.</p>';
+                }
+                if (data.report_only && data.report_only.length > 0) {
+                    html += `<h4 style="margin: 24px 0 16px 0; font-size: 1.1em;">Report-only (not enforced) (${data.report_only.length})</h4>`;
+                    html += renderPolicies(data.report_only, 'sp-ro');
                 }
             }
 
