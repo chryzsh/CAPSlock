@@ -88,6 +88,8 @@ class TargetingResult:
     matched_exclude_users: List[str] = None
     matched_exclude_groups: List[str] = None
     matched_exclude_roles: List[str] = None
+    # Targeting facts that cannot be checked offline (reported as signal-dependent)
+    runtime_notes: List[str] = None
 
 
 @dataclass
