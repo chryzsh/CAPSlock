@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List, Set, Tuple, Any, Dict
-from CAPSlock.models import PolicyResult
+from CAPSlock.models import PolicyResult, is_report_only
 
 
 def _has_signal_dependent_note(reason: str | None) -> bool:
@@ -210,11 +210,14 @@ def print_minimal(r: PolicyResult):
 
 def print_sections_get_policies(results: List[PolicyResult], results_mode: str):
     applied: List[PolicyResult] = []
+    report_only: List[PolicyResult] = []
     excluded: List[PolicyResult] = []
     not_included: List[PolicyResult] = []
 
     for r in results:
-        if r.applies:
+        if r.applies and is_report_only(r):
+            report_only.append(r)
+        elif r.applies:
             applied.append(r)
         else:
             if (r.applies_reason or "").lower().startswith("excluded:"):
@@ -225,6 +228,10 @@ def print_sections_get_policies(results: List[PolicyResult], results_mode: str):
     if results_mode in ("applied", "all"):
         print("\n=== Applied ===\n")
         for r in applied:
+            print_full(r)
+
+        print("\n=== Report-only (not enforced) ===\n")
+        for r in report_only:
             print_full(r)
 
     if results_mode in ("exclusions", "all"):
@@ -239,9 +246,13 @@ def print_sections_get_policies(results: List[PolicyResult], results_mode: str):
 
 
 def print_sections_what_if(results: List[PolicyResult], strict: bool):
-    applied_all = [r for r in results if r.applies]
+    # Report-only policies are listed on their own and never count as enforced.
+    applied_all = [r for r in results if r.applies and not is_report_only(r)]
     applied_def = [r for r in applied_all if not _has_signal_dependent_note(r.applies_reason)]
     applied_rt = [r for r in applied_all if _has_signal_dependent_note(r.applies_reason)]
+    report_only = [r for r in results if r.applies and is_report_only(r)]
+    if strict:
+        report_only = [r for r in report_only if not _has_signal_dependent_note(r.applies_reason)]
 
     print("\n=== Applied (definitive) ===\n")
     if applied_def:
@@ -250,12 +261,17 @@ def print_sections_what_if(results: List[PolicyResult], strict: bool):
     else:
         print("(none)\n")
 
-    if strict:
-        return
+    if not strict:
+        print("\n=== Applied (signal-dependent) ===\n")
+        if applied_rt:
+            for r in applied_rt:
+                print_full(r)
+        else:
+            print("(none)\n")
 
-    print("\n=== Applied (signal-dependent) ===\n")
-    if applied_rt:
-        for r in applied_rt:
+    print("\n=== Report-only (not enforced) ===\n")
+    if report_only:
+        for r in report_only:
             print_full(r)
     else:
         print("(none)\n")
