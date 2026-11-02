@@ -10,7 +10,7 @@ import os
 
 from CAPSlock.db import get_session, DB_PATH
 from CAPSlock.models import SignInContext
-from CAPSlock.query import get_policy_results_for_user
+from CAPSlock.query import canonical_location_id, get_policy_results_for_user
 from CAPSlock.analyze import analyze
 from CAPSlock.serializers import (
     categorize_get_policies_results,
@@ -255,7 +255,7 @@ async def what_if(request: WhatIfRequest):
             app_id=normalize_unknown_str(request.resource),
             acr=normalize_unknown_str(request.acr),
             trusted_location=request.trusted_location,
-            location_id=request.location_id,
+            location_id=canonical_location_id(session, request.location_id),
             platform=(request.platform.lower() if request.platform else None),
             client_app=request.client_app,
             signin_risk=(request.signin_risk.lower() if request.signin_risk else None),
@@ -354,7 +354,7 @@ async def analyze_gaps(request: AnalyzeRequest):
 
         fixed = {
             "trusted_location": request.trusted_location,
-            "location_id": request.location_id,
+            "location_id": canonical_location_id(session, request.location_id),
             "platform": (request.platform.lower() if request.platform else None),
             "client_app": request.client_app,
             "signin_risk": (request.signin_risk.lower() if request.signin_risk else None),
