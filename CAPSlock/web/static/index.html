@@ -1248,9 +1248,17 @@
             const users = conditions.Users;
             if (users) {
                 function collectTargets(blocks) {
-                    const u = [], g = [], r = [], sp = [];
+                    const u = [], g = [], r = [], sp = [], guestTypes = [];
                     let allUsers = false, allGroups = false, guests = false;
                     for (const block of blocks) {
+                        const ext = block.GuestsOrExternalUsers;
+                        if (ext) {
+                            const types = ext.GuestOrExternalUserTypes || '';
+                            const tenants = ext.ExternalTenants;
+                            let label = (Array.isArray(types) ? types.join(', ') : String(types)) || 'no types';
+                            if (Array.isArray(tenants) && tenants.length > 0) label += ` (from ${tenants.length} specific external tenant${tenants.length === 1 ? '' : 's'})`;
+                            guestTypes.push(label);
+                        }
                         if (block.Users?.includes('All')) allUsers = true;
                         else if (block.Users?.includes('GuestsOrExternalUsers')) guests = true;
                         else if (block.Users?.includes('None')) { /* workload identity policy, skip */ }
@@ -1264,6 +1272,7 @@
                     const parts = [];
                     if (allUsers) parts.push('All users');
                     if (guests) parts.push('Guests or external users');
+                    guestTypes.forEach(t => parts.push('Guests or external users: ' + escapeHtml(t)));
                     if (allGroups) parts.push('All groups');
                     if (u.length > 0) parts.push('Users: ' + u.join(', '));
                     if (g.length > 0) parts.push('Groups: ' + g.join(', '));
