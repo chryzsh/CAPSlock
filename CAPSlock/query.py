@@ -283,16 +283,31 @@ def list_named_locations(session) -> List[dict]:
     return sorted(out, key=lambda x: x["name"].lower())
 
 
+def canonical_location_id(session, location_id: Optional[str]) -> Optional[str]:
+    """Return the ID policies reference for a named location given by any of its IDs.
+
+    A named location's objectId maps to its policyIdentifier. Other values (policy IDs,
+    bundled network IDs, AllTrusted, unknown IDs) are returned unchanged.
+    """
+    if not location_id:
+        return location_id
+    ident = location_id.strip().lower()
+    for rec in _named_location_records(session):
+        if any(alias.lower() == ident for alias in rec["alias_ids"]):
+            return rec["id"]
+    return location_id
+
+
 def resolve_named_location(session, identifier: str) -> dict:
     """Find a named location by ID or display name (case-insensitive). Raises ValueError if not found."""
     ident = identifier.strip()
     records = _named_location_records(session)
     locations = list_named_locations(session)
 
-    for _, name, is_trusted, aliases in _selectable_locations(records):
+    for lid, name, is_trusted, aliases in _selectable_locations(records):
         for alias in aliases:
             if alias.lower() == ident.lower():
-                return {"id": alias, "name": name, "is_trusted": is_trusted}
+                return {"id": lid, "name": name, "is_trusted": is_trusted}
     for loc in locations:
         if loc["id"].lower() == ident.lower() or loc["name"].strip().lower() == ident.lower():
             return loc
