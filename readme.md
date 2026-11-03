@@ -167,8 +167,8 @@ python3 CAPSlock.py what-if -u <userprincipalname> --acr <user-action> [options]
 - `--platform <windows|macos|linux|ios|android>`  
   Optional. Device platform (Default = `windows`).
 
-- `--client-app <browser|mobileAppsAndDesktopClients|exchangeActiveSync|exchangeActiveSync|other>`  
-  Optional. Client app type.
+- `--client-app <browser|mobileAppsAndDesktopClients|exchangeActiveSync|other>`  
+  Optional. Client app type, as Graph names it. ROADrecon stores Entra's internal names, which CAPSlock maps: `Browser` is `browser`, `Native` is `mobileAppsAndDesktopClients`, `EasSupported` and `EasUnsupported` are `exchangeActiveSync`, and the `Legacy*` and `OtherLegacy` types are `other`.
 
 - `--signin-risk <none|low|medium|high>`  
   Optional. Sign-in risk level.
