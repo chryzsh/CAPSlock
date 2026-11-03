@@ -1369,13 +1369,41 @@
                 }
             }
 
-            const clientTypes = conditions.ClientTypes;
-            if (clientTypes) {
-                let ctInc = [];
-                for (const block of (clientTypes.Include || [])) {
-                    if (block.ClientTypes) ctInc.push(...block.ClientTypes);
+            // roadrecon stores Entra's internal client type names. Show the Graph
+            // names the What-If form uses, and keep unrecognized values visible.
+            const CLIENT_APP_GROUPS = [
+                ['browser', ['browser']],
+                ['mobileAppsAndDesktopClients', ['native', 'mobileappsanddesktopclients']],
+                ['exchangeActiveSync', ['eassupported', 'easunsupported', 'exchangeactivesync']],
+                ['other', ['legacyimap', 'legacymapi', 'legacyoffice', 'legacypop', 'legacysmtp', 'otherlegacy', 'other']],
+            ];
+            const describeClientApps = (values) => {
+                const out = [];
+                const seen = new Set();
+                for (const v of values) {
+                    const key = String(v).trim().toLowerCase();
+                    if (key === 'all') { if (!seen.has('All')) { seen.add('All'); out.push('All'); } continue; }
+                    const group = CLIENT_APP_GROUPS.find(([, names]) => names.includes(key));
+                    const label = group ? group[0] : escapeHtml(String(v)) + ' (unrecognized)';
+                    if (!seen.has(label)) { seen.add(label); out.push(label); }
                 }
-                if (ctInc.length > 0) rows.push(['Client apps', ctInc.join(', ')]);
+                return out;
+            };
+            const clientTypes = conditions.ClientTypes || {};
+            let ctIncRaw = [...(conditions.ClientAppTypes || [])];
+            let ctExcRaw = [];
+            for (const block of (clientTypes.Include || [])) {
+                if (block.ClientTypes) ctIncRaw.push(...block.ClientTypes);
+            }
+            for (const block of (clientTypes.Exclude || [])) {
+                if (block.ClientTypes) ctExcRaw.push(...block.ClientTypes);
+            }
+            const ctInc = describeClientApps(ctIncRaw);
+            const ctExc = describeClientApps(ctExcRaw);
+            if (ctInc.length > 0 || ctExc.length > 0) {
+                let val = ctInc.join(', ');
+                if (ctExc.length > 0) val += (val ? ', excluding ' : 'Excluding: ') + ctExc.join(', ');
+                rows.push(['Client apps', val]);
             }
 
             for (const [condKey, label] of [['SignInRisks', 'Sign-in risk'], ['UserRisks', 'User risk'], ['AuthFlows', 'Auth flow']]) {
