@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Set, Tuple
 from CAPSlock.models import SignInContext, ConditionEval
+from CAPSlock.client_apps import eval_client_app
 
 def _get_apps_from_condition(detail: Dict[str, Any]) -> Tuple[Set[str], Set[str]]:
     apps_cond = (detail.get("Conditions", {}) or {}).get("Applications", {}) or {}
@@ -445,34 +446,12 @@ def _eval_platform_condition(detail: Dict[str, Any], signin_ctx: SignInContext) 
     return ConditionEval(matched=True, reason="Platform: not excluded (implicit All)")
 
 def _eval_client_app_condition(detail: Dict[str, Any], signin_ctx: SignInContext) -> ConditionEval:
+    # roadrecon stores Entra's internal client type names (Browser, Native,
+    # EasSupported, LegacyImap, ...), the CLI takes Graph names. eval_client_app
+    # maps both to Graph names before comparing.
     cond = (detail.get("Conditions", {}) or {})
-
-    # Graph-style
-    cats = cond.get("ClientAppTypes") or []
-
-    # ROADrecon-style
-    ct = cond.get("ClientTypes") or {}
-    if ct:
-        cats = []
-        for blk in (ct.get("Include") or []):
-            cats.extend(blk.get("ClientTypes") or [])
-
-    if not cats:
-        return ConditionEval(matched=True, reason="ClientApp: no client app type condition present")
-
-    if signin_ctx.client_app is None:
-        return ConditionEval(matched=True, reason="ClientApp: scenario client_app not provided", runtime_dependent=True)
-
-    wanted = set([str(x).strip().lower() for x in cats if x])
-    got = str(signin_ctx.client_app).strip().lower()
-
-    if "all" in wanted:
-        return ConditionEval(matched=True, reason="ClientApp: includes All")
-
-    if got in wanted:
-        return ConditionEval(matched=True, reason=f"ClientApp: matched ({got})")
-
-    return ConditionEval(matched=False, reason=f"ClientApp: did not match ({got})")
+    matched, runtime_dependent, reason = eval_client_app(cond, signin_ctx.client_app)
+    return ConditionEval(matched=matched, reason=reason, runtime_dependent=runtime_dependent)
 
 def _eval_signin_risk_condition(detail: Dict[str, Any], signin_ctx: SignInContext) -> ConditionEval:
     cond = (detail.get("Conditions", {}) or {})

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Optional, Set, Tuple, Any, Dict
 from CAPSlock.models import PolicyResult, NameResolver, is_report_only
+from CAPSlock.client_apps import raw_client_app_values, describe_client_app_values
 
 
 def _has_signal_dependent_note(reason: str | None) -> bool:
@@ -132,9 +133,9 @@ def render_conditions_summary(detail: dict, resolver: Optional[NameResolver] = N
     out += _format_inc_exc("Device platform", p_inc, p_exc)
 
     # Client app
-    c_inc_b, c_exc_b = _cond_blocks(cond, "ClientTypes")
-    c_inc = _flatten_list(c_inc_b, "ClientTypes")
-    c_exc = _flatten_list(c_exc_b, "ClientTypes")
+    c_inc_raw, c_exc_raw = raw_client_app_values(cond)
+    c_inc = describe_client_app_values(c_inc_raw)
+    c_exc = describe_client_app_values(c_exc_raw)
     out += _format_inc_exc("Client app", c_inc, c_exc)
 
     # Sign-in risk
